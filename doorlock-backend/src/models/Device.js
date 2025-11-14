@@ -5,11 +5,37 @@ const mongoose = require('mongoose');
  * Represents ESP32 devices connected to the system
  */
 const deviceSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Device owner is required'],
+    index: true
+  },
+  sharedWith: [{
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    permissions: [{
+      type: String,
+      enum: ['view', 'control'],
+      default: ['view']
+    }],
+    sharedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   name: {
     type: String,
     required: [true, 'Device name is required'],
     trim: true,
     maxlength: [50, 'Device name cannot exceed 50 characters']
+  },
+  deviceType: {
+    type: String,
+    enum: ['esp32-cam', 'door-lock', 'motion-sensor', 'other'],
+    default: 'door-lock'
   },
   espId: {
     type: String,
@@ -17,6 +43,11 @@ const deviceSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     uppercase: true
+  },
+  deviceToken: {
+    type: String,
+    // Secure token for device authentication
+    select: false // Don't return in queries by default
   },
   status: {
     type: String,
@@ -43,7 +74,9 @@ const deviceSchema = new mongoose.Schema({
     macAddress: String,
     chipModel: String,
     flashSize: String,
-    freeHeap: Number
+    freeHeap: Number,
+    batteryLevel: Number,
+    rssi: Number // WiFi signal strength
   },
   settings: {
     autoLockTimeout: {
@@ -51,6 +84,17 @@ const deviceSchema = new mongoose.Schema({
       default: 5000, // milliseconds
       min: 1000,
       max: 60000
+    },
+    motionSensitivity: {
+      type: Number,
+      default: 50,
+      min: 0,
+      max: 100
+    },
+    captureMode: {
+      type: String,
+      enum: ['on_motion', 'continuous', 'manual'],
+      default: 'on_motion'
     },
     enableNotifications: {
       type: Boolean,
@@ -106,10 +150,46 @@ deviceSchema.statics.findActiveDevices = function() {
   return this.find({ isActive: true, status: 'online' });
 };
 
+/**
+ * Static method to find devices by user (owner or shared)
+ */
+deviceSchema.statics.findByUser = function(userId) {
+  return this.find({
+    $or: [
+      { userId: userId },
+      { 'sharedWith.userId': userId }
+    ],
+    isActive: true
+  });
+};
+
+/**
+ * Method to check if user has access to device
+ */
+deviceSchema.methods.hasAccess = function(userId) {
+  // Check if owner
+  if (this.userId.toString() === userId.toString()) {
+    return { hasAccess: true, permissions: ['view', 'control', 'admin'] };
+  }
+  
+  // Check if shared
+  const sharedAccess = this.sharedWith.find(
+    share => share.userId.toString() === userId.toString()
+  );
+  
+  if (sharedAccess) {
+    return { hasAccess: true, permissions: sharedAccess.permissions };
+  }
+  
+  return { hasAccess: false, permissions: [] };
+};
+
 // Indexes for performance
 deviceSchema.index({ espId: 1 });
+deviceSchema.index({ userId: 1 });
 deviceSchema.index({ status: 1 });
 deviceSchema.index({ lastSeen: -1 });
+deviceSchema.index({ 'sharedWith.userId': 1 });
 
 // Enable virtuals in JSON
 deviceSchema.set('toJSON', { virtuals: true });

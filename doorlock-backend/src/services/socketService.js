@@ -12,18 +12,23 @@ const logger = require('../utils/logger');
  */
 const notifyNewVisitor = (visitorData) => {
   try {
-    emitToRoom('admin', SOCKET_EVENTS.NEW_VISITOR, {
+    const eventData = {
       visitorId: visitorData._id,
       imageUrl: visitorData.imageUrl,
       deviceId: visitorData.deviceId,
       deviceName: visitorData.deviceName,
       timestamp: visitorData.timestamp,
       status: visitorData.status
-    });
+    };
+    
+    logger.info(`📡 Emitting NEW_VISITOR event to 'admin' room`);
+    logger.info(`Event data: ${JSON.stringify(eventData)}`);
+    
+    emitToRoom('admin', SOCKET_EVENTS.NEW_VISITOR, eventData);
 
-    logger.info(`New visitor notification sent to admins: ${visitorData._id}`);
+    logger.info(`✅ New visitor notification sent to admins: ${visitorData._id}`);
   } catch (error) {
-    logger.error(`Failed to notify new visitor: ${error.message}`);
+    logger.error(`❌ Failed to notify new visitor: ${error.message}`);
   }
 };
 

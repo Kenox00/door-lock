@@ -100,15 +100,15 @@ const initMQTT = () => {
         logger.warn('🔌 MQTT Connection closed');
       });
 
-      mqttClient.on('message', (topic, message, packet) => {
+      mqttClient.on('message', async (topic, message, packet) => {
         try {
           const payload = message.toString();
           logger.info(`📨 MQTT Message received on ${topic}: ${payload}`);
 
-          // Validate message format
+          // Parse and route to appropriate handler
           if (topic && payload) {
-            // Here you would typically route messages to appropriate handlers
-            // For now, just log them
+            const data = JSON.parse(payload);
+            await routeMQTTMessage(topic, data);
           }
         } catch (error) {
           logger.error(`❌ Error processing MQTT message: ${error.message}`);
@@ -120,6 +120,87 @@ const initMQTT = () => {
       reject(error);
     }
   });
+};
+
+/**
+ * Route MQTT messages to handlers
+ */
+const routeMQTTMessage = async (topic, data) => {
+  try {
+    const deviceConnectionManager = require('../services/deviceConnectionManager');
+    const { getIO, SOCKET_EVENTS } = require('./socket');
+    const { Device } = require('../models');
+    const DeviceEvent = require('../models/DeviceEvent');
+
+    switch (topic) {
+      case MQTT_TOPICS.RESPONSE:
+        // Device response to command
+        logger.info(`Device response: ${JSON.stringify(data)}`);
+        
+        if (data.commandId) {
+          await deviceConnectionManager.handleCommandAck(
+            data.commandId,
+            data.status || 'executed',
+            data.errorMessage
+          );
+        }
+        break;
+
+      case MQTT_TOPICS.STATUS:
+        // Device status update
+        const { espId, status, metadata } = data;
+        
+        // Find device
+        const device = await Device.findOne({ espId });
+        if (device) {
+          // Update connection manager
+          if (status === 'online') {
+            await deviceConnectionManager.registerDevice(
+              device._id.toString(),
+              'mqtt',
+              mqttClient,
+              metadata || {}
+            );
+          } else {
+            await deviceConnectionManager.unregisterDevice(
+              device._id.toString(),
+              'mqtt',
+              'status_update'
+            );
+          }
+
+          // Update database
+          await Device.findByIdAndUpdate(device._id, {
+            status: status === 'online' ? 'online' : 'offline',
+            lastSeen: new Date(),
+            ...(metadata && { metadata: { ...device.metadata, ...metadata } })
+          });
+
+          // Log event
+          await DeviceEvent.logEvent({
+            deviceId: device._id,
+            eventType: status === 'online' ? 'device_connected' : 'device_disconnected',
+            payload: { espId, status, metadata },
+            metadata: { source: 'mqtt' }
+          });
+
+          // Broadcast to dashboards
+          const io = getIO();
+          io.to(`user:${device.userId}`).emit(SOCKET_EVENTS.DEVICE_STATUS, {
+            deviceId: device._id,
+            deviceName: device.name,
+            status: status === 'online' ? 'online' : 'offline',
+            timestamp: new Date()
+          });
+        }
+        break;
+
+      default:
+        logger.warn(`Message received on unknown MQTT topic: ${topic}`);
+    }
+  } catch (error) {
+    logger.error(`Error routing MQTT message: ${error.message}`);
+  }
 };
 
 /**

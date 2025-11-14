@@ -84,20 +84,17 @@ const register = async (req, res) => {
  */
 const login = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
 
     // Validate required fields
-    const validation = validateRequiredFields(req.body, ['username', 'password']);
+    const validation = validateRequiredFields(req.body, ['email', 'password']);
     if (!validation.isValid) {
       return errorResponse(res, `Missing required fields: ${validation.missing.join(', ')}`, 400);
     }
 
-    // Find user by username or email
+    // Find user by email
     const user = await User.findOne({
-      $or: [
-        { username: username.toLowerCase() },
-        { email: username.toLowerCase() }
-      ]
+      email: email.toLowerCase()
     });
 
     if (!user) {

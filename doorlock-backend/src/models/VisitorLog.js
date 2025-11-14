@@ -14,7 +14,7 @@ const visitorLogSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'granted', 'denied'],
+    enum: ['pending', 'granted', 'denied', 'approved', 'rejected'],
     default: 'pending'
   },
   deviceId: {
@@ -34,6 +34,17 @@ const visitorLogSchema = new mongoose.Schema({
   },
   decisionTime: {
     type: Date
+  },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  processedAt: {
+    type: Date
+  },
+  note: {
+    type: String,
+    maxlength: [500, 'Note cannot exceed 500 characters']
   },
   notes: {
     type: String,

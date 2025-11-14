@@ -23,34 +23,62 @@ const openDoor = async (req, res) => {
       return errorResponse(res, 'Valid visitor log ID is required', 400);
     }
 
-    // Find visitor log
-    const visitorLog = await VisitorLog.findById(visitorLogId).populate('deviceId');
+    // Atomic update - only update if status is still 'pending'
+    const visitorLog = await VisitorLog.findOneAndUpdate(
+      { 
+        _id: visitorLogId, 
+        status: 'pending' // Only update if still pending
+      },
+      {
+        $set: {
+          status: 'granted',
+          adminId: req.user.userId,
+          adminUsername: req.user.username,
+          decisionTime: new Date(),
+          ...(notes && { notes })
+        }
+      },
+      { 
+        new: true, // Return updated document
+        runValidators: true
+      }
+    ).populate('deviceId');
 
     if (!visitorLog) {
-      return errorResponse(res, 'Visitor log not found', 404);
+      // Either doesn't exist or already processed
+      const existing = await VisitorLog.findById(visitorLogId);
+      if (!existing) {
+        return errorResponse(res, 'Visitor log not found', 404);
+      }
+      return errorResponse(res, `Request already ${existing.status}`, 409);
     }
 
-    if (visitorLog.status !== 'pending') {
-      return errorResponse(res, `Request already ${visitorLog.status}`, 400);
+    // Verify user has access to this device
+    const deviceAccess = visitorLog.deviceId.hasAccess(req.user.userId);
+    if (!deviceAccess.hasAccess || !deviceAccess.permissions.includes('control')) {
+      return errorResponse(res, 'No permission to control this device', 403);
     }
 
-    // Update visitor log
-    visitorLog.status = 'granted';
-    visitorLog.adminId = req.user.userId;
-    visitorLog.adminUsername = req.user.username;
-    visitorLog.decisionTime = new Date();
-    if (notes) {
-      visitorLog.notes = notes;
-    }
-
-    await visitorLog.save();
-
-    // Send MQTT command to ESP32
+    // Send command to device via connection manager
+    const deviceConnectionManager = require('../services/deviceConnectionManager');
+    let commandResult = null;
+    
     try {
-      await sendOpenCommand(visitorLog.deviceId.espId);
+      // Check if device is online
+      if (!deviceConnectionManager.isDeviceOnline(visitorLog.deviceId._id.toString())) {
+        logger.warn(`Device ${visitorLog.deviceId.name} is offline, attempting MQTT fallback`);
+      }
+
+      commandResult = await deviceConnectionManager.sendCommand(
+        visitorLog.deviceId._id.toString(),
+        'unlock_door',
+        { duration: 5000 },
+        req.user.userId
+      );
     } catch (mqttError) {
-      logger.error(`MQTT command failed: ${mqttError.message}`);
-      // Continue anyway - log is updated
+      logger.error(`Failed to send command: ${mqttError.message}`);
+      // Continue - log is already updated, notify user of issue
+      commandResult = { error: mqttError.message };
     }
 
     // Notify DoorApp via Socket.IO
@@ -68,7 +96,8 @@ const openDoor = async (req, res) => {
       status: visitorLog.status,
       adminUsername: visitorLog.adminUsername,
       decisionTime: visitorLog.decisionTime,
-      deviceName: visitorLog.deviceId.name
+      deviceName: visitorLog.deviceId.name,
+      commandStatus: commandResult
     }, 'Door opened successfully');
 
   } catch (error) {
@@ -90,34 +119,55 @@ const denyDoor = async (req, res) => {
       return errorResponse(res, 'Valid visitor log ID is required', 400);
     }
 
-    // Find visitor log
-    const visitorLog = await VisitorLog.findById(visitorLogId).populate('deviceId');
+    // Atomic update - only update if status is still 'pending'
+    const visitorLog = await VisitorLog.findOneAndUpdate(
+      { 
+        _id: visitorLogId, 
+        status: 'pending' 
+      },
+      {
+        $set: {
+          status: 'denied',
+          adminId: req.user.userId,
+          adminUsername: req.user.username,
+          decisionTime: new Date(),
+          ...(notes && { notes })
+        }
+      },
+      { 
+        new: true,
+        runValidators: true
+      }
+    ).populate('deviceId');
 
     if (!visitorLog) {
-      return errorResponse(res, 'Visitor log not found', 404);
+      const existing = await VisitorLog.findById(visitorLogId);
+      if (!existing) {
+        return errorResponse(res, 'Visitor log not found', 404);
+      }
+      return errorResponse(res, `Request already ${existing.status}`, 409);
     }
 
-    if (visitorLog.status !== 'pending') {
-      return errorResponse(res, `Request already ${visitorLog.status}`, 400);
+    // Verify user has access to this device
+    const deviceAccess = visitorLog.deviceId.hasAccess(req.user.userId);
+    if (!deviceAccess.hasAccess || !deviceAccess.permissions.includes('control')) {
+      return errorResponse(res, 'No permission to control this device', 403);
     }
 
-    // Update visitor log
-    visitorLog.status = 'denied';
-    visitorLog.adminId = req.user.userId;
-    visitorLog.adminUsername = req.user.username;
-    visitorLog.decisionTime = new Date();
-    if (notes) {
-      visitorLog.notes = notes;
-    }
-
-    await visitorLog.save();
-
-    // Send MQTT command to ESP32
+    // Send DENY command (lock door if it's unlocked)
+    const deviceConnectionManager = require('../services/deviceConnectionManager');
+    let commandResult = null;
+    
     try {
-      await sendDenyCommand(visitorLog.deviceId.espId);
+      commandResult = await deviceConnectionManager.sendCommand(
+        visitorLog.deviceId._id.toString(),
+        'lock_door',
+        {},
+        req.user.userId
+      );
     } catch (mqttError) {
-      logger.error(`MQTT command failed: ${mqttError.message}`);
-      // Continue anyway - log is updated
+      logger.error(`Failed to send deny command: ${mqttError.message}`);
+      commandResult = { error: mqttError.message };
     }
 
     // Notify DoorApp via Socket.IO
@@ -135,7 +185,8 @@ const denyDoor = async (req, res) => {
       status: visitorLog.status,
       adminUsername: visitorLog.adminUsername,
       decisionTime: visitorLog.decisionTime,
-      deviceName: visitorLog.deviceId.name
+      deviceName: visitorLog.deviceId.name,
+      commandStatus: commandResult
     }, 'Access denied successfully');
 
   } catch (error) {

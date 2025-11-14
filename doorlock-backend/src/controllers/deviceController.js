@@ -15,7 +15,7 @@ const logger = require('../utils/logger');
  */
 const registerDevice = async (req, res) => {
   try {
-    const { name, espId, location, firmwareVersion, metadata } = req.body;
+    const { name, espId, location, firmwareVersion, metadata, deviceType } = req.body;
 
     // Validate required fields
     const validation = validateRequiredFields(req.body, ['name', 'espId']);
@@ -29,10 +29,17 @@ const registerDevice = async (req, res) => {
       return errorResponse(res, 'Device with this ESP ID already exists', 400);
     }
 
-    // Create new device
+    // Generate device token for authentication
+    const crypto = require('crypto');
+    const deviceToken = crypto.randomBytes(32).toString('hex');
+
+    // Create new device - assign to current user
     const device = new Device({
+      userId: req.user.userId,
       name,
       espId: espId.toUpperCase(),
+      deviceType: deviceType || 'door-lock',
+      deviceToken,
       location,
       firmwareVersion,
       metadata,
@@ -42,7 +49,7 @@ const registerDevice = async (req, res) => {
 
     await device.save();
 
-    logger.info(`New device registered: ${device.name} (${device.espId})`);
+    logger.info(`New device registered: ${device.name} (${device.espId}) by user ${req.user.username}`);
 
     // Notify clients about new device
     notifyDeviceStatus({
@@ -56,6 +63,8 @@ const registerDevice = async (req, res) => {
       id: device._id,
       name: device.name,
       espId: device.espId,
+      deviceType: device.deviceType,
+      deviceToken,
       location: device.location,
       status: device.status,
       createdAt: device.createdAt
@@ -75,11 +84,16 @@ const getAllDevices = async (req, res) => {
   try {
     const { status, isActive } = req.query;
 
-    const filter = {};
+    const filter = {
+      $or: [
+        { userId: req.user.userId },
+        { 'sharedWith.userId': req.user.userId }
+      ]
+    };
     if (status) filter.status = status;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
 
-    const devices = await Device.find(filter).sort({ createdAt: -1 });
+    const devices = await Device.find(filter).select('-deviceToken').sort({ createdAt: -1 });
 
     return successResponse(res, devices, 'Devices retrieved successfully');
 
@@ -101,13 +115,21 @@ const getDeviceById = async (req, res) => {
       return errorResponse(res, 'Invalid device ID', 400);
     }
 
-    const device = await Device.findById(id);
+    const device = await Device.findById(id).select('-deviceToken');
 
     if (!device) {
       return errorResponse(res, 'Device not found', 404);
     }
 
-    return successResponse(res, device, 'Device retrieved successfully');
+    const access = device.hasAccess(req.user.userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, 'No access to this device', 403);
+    }
+
+    return successResponse(res, {
+      ...device.toObject(),
+      userPermissions: access.permissions
+    }, 'Device retrieved successfully');
 
   } catch (error) {
     logger.error(`Get device by ID error: ${error.message}`);
@@ -132,6 +154,11 @@ const updateDevice = async (req, res) => {
 
     if (!device) {
       return errorResponse(res, 'Device not found', 404);
+    }
+
+    const access = device.hasAccess(req.user.userId);
+    if (!access.hasAccess || !access.permissions.includes('control')) {
+      return errorResponse(res, 'No permission to update this device', 403);
     }
 
     // Update fields
@@ -213,11 +240,17 @@ const deleteDevice = async (req, res) => {
       return errorResponse(res, 'Invalid device ID', 400);
     }
 
-    const device = await Device.findByIdAndDelete(id);
+    const device = await Device.findById(id);
 
     if (!device) {
       return errorResponse(res, 'Device not found', 404);
     }
+
+    if (device.userId.toString() !== req.user.userId.toString()) {
+      return errorResponse(res, 'Only device owner can delete', 403);
+    }
+
+    await Device.findByIdAndDelete(id);
 
     logger.info(`Device deleted: ${device.name} (${device.espId})`);
 
@@ -235,17 +268,28 @@ const deleteDevice = async (req, res) => {
  */
 const getDeviceStats = async (req, res) => {
   try {
-    const total = await Device.countDocuments();
-    const online = await Device.countDocuments({ status: 'online' });
-    const offline = await Device.countDocuments({ status: 'offline' });
-    const maintenance = await Device.countDocuments({ status: 'maintenance' });
+    const userFilter = {
+      $or: [
+        { userId: req.user.userId },
+        { 'sharedWith.userId': req.user.userId }
+      ]
+    };
+
+    const total = await Device.countDocuments(userFilter);
+    const online = await Device.countDocuments({ ...userFilter, status: 'online' });
+    const offline = await Device.countDocuments({ ...userFilter, status: 'offline' });
+    const maintenance = await Device.countDocuments({ ...userFilter, status: 'maintenance' });
+    const owned = await Device.countDocuments({ userId: req.user.userId });
+    const shared = await Device.countDocuments({ 'sharedWith.userId': req.user.userId });
 
     return successResponse(res, {
       total,
       online,
       offline,
       maintenance,
-      active: await Device.countDocuments({ isActive: true })
+      owned,
+      shared,
+      active: await Device.countDocuments({ ...userFilter, isActive: true })
     }, 'Device statistics retrieved successfully');
 
   } catch (error) {
