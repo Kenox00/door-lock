@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "message": "Visitor logs retrieved successfully",
+  "data": [
+    {
+      "metadata": { "ipAddress": "::1", "userAgent": "PostmanRuntime/7.39.1" },
+      "_id": "69162cd1edc19e21bc3fcc15",
+      "imageUrl": "https://res.cloudinary.com/kenox/image/upload/v1763060943/doorlock/visitors/b2evn2cveygh68tqscge.png",
+      "imagePublicId": "doorlock/visitors/b2evn2cveygh68tqscge",
+      "status": "pending",
+      "deviceId": {
+        "_id": "691625b76a8d2d0a50eddd00",
+        "name": "ESP32-Door-1",
+        "espId": "ESP32_12345",
+        "status": "online",
+        "isRecentlyActive": false,
+        "id": "691625b76a8d2d0a50eddd00"
+      },
+      "deviceName": "ESP32-Door-1",
+      "timestamp": "2025-11-13T19:09:05.129Z",
+      "createdAt": "2025-11-13T19:09:05.138Z",
+      "updatedAt": "2025-11-13T19:09:05.138Z",
+      "__v": 0,
+      "responseTime": null,
+      "id": "69162cd1edc19e21bc3fcc15"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "itemsPerPage": 20,
+    "totalItems": 1,
+    "totalPages": 1,
+    "hasNextPage": false,
+    "hasPreviousPage": false
+  },
+  "timestamp": "2025-11-14T04:08:09.374Z"
+}

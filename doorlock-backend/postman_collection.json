@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "Door Lock System API",
+    "description": "Complete API collection for Smart IoT Door Lock System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"email\": \"admin@doorlock.com\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/auth/me",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Devices",
+      "item": [
+        {
+          "name": "Register Device",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Front Door Lock\",\n  \"espId\": \"ESP32_001\",\n  \"location\": \"Main Entrance\",\n  \"firmwareVersion\": \"1.0.0\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/device/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "device", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get All Devices",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/device",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "device"]
+            }
+          }
+        },
+        {
+          "name": "Get Device Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/device/stats",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "device", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Door Operations",
+      "item": [
+        {
+          "name": "Upload Visitor Photo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "/path/to/image.jpg"
+                },
+                {
+                  "key": "deviceId",
+                  "value": "DEVICE_ID_HERE",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/door/upload",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "door", "upload"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Visitors",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/door/logs/pending",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "door", "logs", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Get All Visitor Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/door/logs?page=1&limit=20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "door", "logs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Visitor Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/door/stats",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "door", "stats"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Commands",
+      "item": [
+        {
+          "name": "Open Door (Grant Access)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visitorLogId\": \"VISITOR_LOG_ID\",\n  \"notes\": \"Authorized visitor\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/command/open",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "command", "open"]
+            }
+          }
+        },
+        {
+          "name": "Deny Access",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visitorLogId\": \"VISITOR_LOG_ID\",\n  \"notes\": \"Unknown person\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/api/command/deny",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "command", "deny"]
+            }
+          }
+        },
+        {
+          "name": "Get Command History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{TOKEN}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/api/command/history?page=1&limit=20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["api", "command", "history"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "TOKEN",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

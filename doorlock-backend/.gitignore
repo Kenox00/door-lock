@@ -1,0 +1,213 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment Variables
+.env
+.env.local
+.env.production
+
+# Logs
+logs/
+*.log
+
+# Uploads
+uploads/
+temp/
+*.log
+*.log.*
+debug.log
+
+# Runtime data
+pids/
+*.pid
+*.pid.lock
+*.seed
+*.pid.tmp
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.json
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variables
+.env
+.env.*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build output
+dist/
+build/
+out/
+release/
+lib/
+tmp/
+temp/
+serverless/.build/
+serverless/.serverless/
+
+# TypeScript
+*.tsbuildinfo
+
+# Next.js
+.next/
+.next/cache/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# Parcel
+.cache/
+.cache-loader/
+.parcel-cache/
+
+# Vite
+node_modules/.vite/
+
+# Coverage
+coverage/
+coverage-*.json
+.nyc_output/
+
+# Testing
+jest.config.*.ts
+test-results.xml
+
+# Dependency directories (in case of alternative package managers)
+.pnpm-store/
+.pnp*
+
+# IDEs and editors
+.vscode/
+.vscode-test/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.tmp
+*.temp
+
+# JetBrains IDEs
+.idea/
+*.iml
+out/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Icon must end with two \r
+Icon
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Linux
+*~
+
+# Docker
+docker-compose.override.yml
+docker-compose.*.yml
+.dockerignore
+.env.docker
+secrets/
+**/secrets/*
+docker-compose.*.local.yml
+
+# Kubernetes
+.kube/
+kubeconfig
+kubeconfig.*
+
+# Logs and monitoring
+*.stackdump
+
+# Security and credentials
+credentials/
+*.pem
+*.key
+*.crt
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+dump.rdb
+
+# ORM / DB tools
+.prisma/client
+prisma/.env
+
+# AWS SAM / Serverless
+.aws-sam/
+.serverless/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+.terraform.lock.hcl
+
+# VS Code workspace storage
+.vscode-test/
+
+# npm pack generated files
+package-lock.json.tmp
+
+# Generated docs
+docs/.vuepress/dist
+docs/.vitepress/dist
+doc/api/
+
+# Misc
+coverage_reports/
+uploads/
+tmp_uploads/
+public/uploads/
+.cache/
+.cache-loader/
+
+# Ignore build artifacts and local-only files created by CI/tools
+build-*/ 
+dist-*/
+*.local
+*.local.*.cache
+
+# End of file
