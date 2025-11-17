@@ -185,8 +185,7 @@ deviceSchema.methods.hasAccess = function(userId) {
 };
 
 // Indexes for performance
-deviceSchema.index({ espId: 1 });
-deviceSchema.index({ userId: 1 });
+// Note: espId already has unique index, userId already has index: true in schema
 deviceSchema.index({ status: 1 });
 deviceSchema.index({ lastSeen: -1 });
 deviceSchema.index({ 'sharedWith.userId': 1 });

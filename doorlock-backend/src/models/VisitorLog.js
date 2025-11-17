@@ -87,9 +87,9 @@ visitorLogSchema.virtual('responseTime').get(function() {
 });
 
 // Indexes for efficient querying
+// Note: Compound indexes below cover single-field queries as well
 visitorLogSchema.index({ deviceId: 1, timestamp: -1 });
 visitorLogSchema.index({ status: 1, timestamp: -1 });
-visitorLogSchema.index({ timestamp: -1 });
 visitorLogSchema.index({ adminId: 1 });
 
 // Enable virtuals in JSON

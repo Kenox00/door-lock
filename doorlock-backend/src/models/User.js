@@ -87,9 +87,7 @@ userSchema.methods.toJSON = function() {
   return user;
 };
 
-// Indexes for performance
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
+// Note: Indexes already created by unique: true on username and email fields
 
 const User = mongoose.model('User', userSchema);
 

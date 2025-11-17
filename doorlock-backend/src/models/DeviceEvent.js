@@ -61,14 +61,14 @@ const deviceEventSchema = new mongoose.Schema({
   },
   timestamp: {
     type: Date,
-    default: Date.now,
-    index: true
+    default: Date.now
   }
 }, {
   timestamps: true
 });
 
 // Compound indexes for common queries
+// Note: deviceId, userId, correlationId, and eventType already have index: true in schema
 deviceEventSchema.index({ deviceId: 1, timestamp: -1 });
 deviceEventSchema.index({ eventType: 1, timestamp: -1 });
 deviceEventSchema.index({ deviceId: 1, eventType: 1, timestamp: -1 });
