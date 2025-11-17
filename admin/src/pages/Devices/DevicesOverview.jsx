@@ -7,11 +7,13 @@ import { DoorLockCard } from '../../components/devices/DoorLockCard';
 import { LightCard } from '../../components/devices/LightCard';
 import { PlugCard } from '../../components/devices/PlugCard';
 import { MotionCard } from '../../components/devices/MotionCard';
+import { AddDeviceModal } from '../../components/devices/AddDeviceModal';
 
 export const DevicesOverview = () => {
-  const { devices, loading } = useDevices();
+  const { devices, loading, fetchDevices } = useDevices();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const deviceTypes = [
     { id: 'all', label: 'All Devices', count: devices.length },
@@ -75,7 +77,7 @@ export const DevicesOverview = () => {
             <h1 className="text-3xl font-bold text-gray-900">Devices</h1>
             <p className="text-gray-500 mt-1">Manage and control all your smart devices</p>
           </div>
-          <Button variant="primary">
+          <Button variant="primary" onClick={() => setIsAddModalOpen(true)}>
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
@@ -138,6 +140,15 @@ export const DevicesOverview = () => {
           </Card>
         )}
       </div>
+
+      {/* Add Device Modal */}
+      <AddDeviceModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onDeviceAdded={() => {
+          fetchDevices();
+        }}
+      />
     </DashboardLayout>
   );
 };

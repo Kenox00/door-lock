@@ -137,6 +137,7 @@ export const WebSocketProvider = ({ children }) => {
 
   /**
    * Initialize WebSocket with event handlers
+   * Don't auto-connect - we'll connect manually when authenticated
    */
   const {
     isConnected,
@@ -152,7 +153,7 @@ export const WebSocketProvider = ({ children }) => {
     off,
     emit,
   } = useWebSocket({
-    autoConnect: true,
+    autoConnect: false,
     handlers: {
       [SOCKET_EVENTS.DEVICE_CONNECTED]: handleDeviceConnected,
       [SOCKET_EVENTS.DEVICE_DISCONNECTED]: handleDeviceDisconnected,
@@ -163,6 +164,17 @@ export const WebSocketProvider = ({ children }) => {
       [SOCKET_EVENTS.SYSTEM_ALERT]: handleSystemAlert,
     },
   });
+
+  /**
+   * Connect WebSocket when we have devices (means we're authenticated)
+   */
+  useEffect(() => {
+    if (devices && devices.length >= 0 && !isConnected) {
+      // We have devices data, so we're authenticated - connect WebSocket
+      console.log('🔌 Authenticated - connecting WebSocket...');
+      connect();
+    }
+  }, [devices, isConnected, connect]);
 
   /**
    * Subscribe to all devices when connected or when devices change
@@ -193,9 +205,11 @@ export const WebSocketProvider = ({ children }) => {
    * Show notification on connection status changes
    */
   useEffect(() => {
+    if (!notification) return;
+    
     if (isConnected) {
       notification.success('Connected to server');
-    } else if (connectionError) {
+    } else if (connectionError && connectionError !== 'No authentication token') {
       notification.error(`Connection error: ${connectionError}`);
     }
   }, [isConnected, connectionError, notification]);

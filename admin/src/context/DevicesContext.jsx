@@ -1,14 +1,22 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { devicesApi } from '../api/devicesApi';
+import { getToken } from '../utils/storage';
 
 export const DevicesContext = createContext(null);
 
 export const DevicesProvider = ({ children }) => {
   const [devices, setDevices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchDevices = useCallback(async () => {
+    // Only fetch if we have a token
+    if (!getToken()) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
     try {
       const response = await devicesApi.getAllDevices();
       if (response.data) {
@@ -25,13 +33,18 @@ export const DevicesProvider = ({ children }) => {
     } catch (err) {
       console.error('Error fetching devices:', err);
       setError(err.message || 'Failed to fetch devices');
+      // Clear devices on error
+      setDevices([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchDevices();
+    // Only fetch devices if authenticated
+    if (getToken()) {
+      fetchDevices();
+    }
   }, [fetchDevices]);
 
   // Removed HTTP polling - using WebSocket real-time updates instead
@@ -153,6 +166,20 @@ export const DevicesProvider = ({ children }) => {
     return devices.filter(device => device.online === true || device.status === 'online');
   };
 
+  const addDevice = async (deviceData) => {
+    try {
+      const response = await devicesApi.registerDevice(deviceData);
+      if (response.data) {
+        // Refresh devices list to include the new device
+        await fetchDevices();
+        return { success: true, data: response.data };
+      }
+    } catch (error) {
+      console.error('Error adding device:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   const value = {
     devices,
     loading,
@@ -160,6 +187,7 @@ export const DevicesProvider = ({ children }) => {
     refreshDevices: fetchDevices, // Alias for clarity in WebSocket context
     fetchDevices,
     updateDeviceState,
+    addDevice,
     turnOn,
     turnOff,
     setBrightness,

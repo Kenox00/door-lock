@@ -60,9 +60,16 @@ export const useWebSocket = (options = {}) => {
     const token = getToken();
     
     if (!token) {
-      console.error('❌ Cannot connect to WebSocket: No authentication token');
+      console.warn('⚠️ Cannot connect to WebSocket: No authentication token');
       setConnectionError('No authentication token');
-      return;
+      setIsConnected(false);
+      return false;
+    }
+    
+    // Disconnect existing connection if any
+    if (socketRef.current) {
+      socketRef.current.disconnect();
+      socketRef.current = null;
     }
 
     const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
@@ -153,9 +160,11 @@ export const useWebSocket = (options = {}) => {
         }
       });
 
+      return true;
     } catch (error) {
       console.error('❌ Error creating socket:', error);
       setConnectionError(error.message);
+      return false;
     }
   }, []);
 

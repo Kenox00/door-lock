@@ -31,7 +31,10 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       removeToken();
-      window.location.href = '/login';
+      // Only redirect if not already on login page to prevent infinite loop
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     
     const message = error.response?.data?.message || error.message || 'An error occurred';

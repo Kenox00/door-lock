@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { authApi } from '../../api/authApi';
 import { Button } from '../../components/ui/Button';
 
-export const Login = () => {
+export const Signup = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,15 +29,44 @@ export const Login = () => {
     setLoading(true);
     setError('');
 
-    const result = await login(formData);
-
-    if (result.success) {
-      navigate('/');
-    } else {
-      setError(result.error || 'Login failed');
+    // Validate passwords match
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    // Validate password length
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // eslint-disable-next-line no-unused-vars
+      const { confirmPassword, ...signupData } = formData;
+      const result = await authApi.register(signupData);
+
+      if (result.data) {
+        // Auto-login after successful registration
+        const loginResult = await login({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (loginResult.success) {
+          navigate('/');
+        } else {
+          // Registration successful but login failed, redirect to login page
+          navigate('/login', { state: { message: 'Registration successful! Please login.' } });
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,9 +83,9 @@ export const Login = () => {
           <p className="text-gray-600">Control your IoT devices from anywhere</p>
         </div>
 
-        {/* Login Form */}
+        {/* Signup Form */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign In</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Create Account</h2>
 
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
@@ -62,6 +94,27 @@ export const Login = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Username */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                Username
+              </label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                minLength={3}
+                maxLength={30}
+                pattern="[a-zA-Z0-9_]+"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
+                placeholder="johndoe"
+              />
+              <p className="mt-1 text-xs text-gray-500">3-30 characters, letters, numbers and underscore only</p>
+            </div>
+
             {/* Email */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -91,23 +144,49 @@ export const Login = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
+                minLength={6}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
+                placeholder="••••••••"
+              />
+              <p className="mt-1 text-xs text-gray-500">At least 6 characters</p>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                minLength={6}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition"
                 placeholder="••••••••"
               />
             </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+            {/* Terms & Conditions */}
+            <div className="flex items-start">
+              <input
+                type="checkbox"
+                id="terms"
+                required
+                className="w-4 h-4 mt-1 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              />
+              <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
+                I agree to the{' '}
+                <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                  Terms and Conditions
+                </a>{' '}
+                and{' '}
+                <a href="#" className="text-green-600 hover:text-green-700 font-medium">
+                  Privacy Policy
+                </a>
               </label>
-              <a href="#" className="text-sm text-green-600 hover:text-green-700 font-medium">
-                Forgot password?
-              </a>
             </div>
 
             {/* Submit Button */}
@@ -118,7 +197,7 @@ export const Login = () => {
               loading={loading}
               className="mt-6"
             >
-              Sign In
+              Create Account
             </Button>
           </form>
 
@@ -132,9 +211,9 @@ export const Login = () => {
             </div>
           </div>
 
-          {/* Social Login */}
+          {/* Social Signup */}
           <div className="grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+            <button type="button" className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -143,7 +222,7 @@ export const Login = () => {
               </svg>
               <span className="text-sm font-medium text-gray-700">Google</span>
             </button>
-            <button className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+            <button type="button" className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z" clipRule="evenodd" />
               </svg>
@@ -151,11 +230,11 @@ export const Login = () => {
             </button>
           </div>
 
-          {/* Sign Up Link */}
+          {/* Login Link */}
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-green-600 hover:text-green-700 font-medium">
-              Sign up
+            Already have an account?{' '}
+            <Link to="/login" className="text-green-600 hover:text-green-700 font-medium">
+              Sign in
             </Link>
           </p>
         </div>

@@ -4,8 +4,10 @@ import { useAuth } from '../hooks/useAuth';
 
 // Pages
 import { Login } from '../pages/Auth/Login';
+import { Signup } from '../pages/Auth/Signup';
 import { Home } from '../pages/Dashboard/Home';
 import { DevicesOverview } from '../pages/Devices/DevicesOverview';
+import { DeviceDetails } from '../pages/Devices/DeviceDetails';
 import { LiveFeed } from '../pages/Camera/LiveFeed';
 import { ActivityLogs } from '../pages/ActivityLogs/ActivityLogs';
 
@@ -73,6 +75,15 @@ export const AppRoutes = () => {
           }
         />
 
+        <Route
+          path="/signup"
+          element={
+            <PublicRoute>
+              <Signup />
+            </PublicRoute>
+          }
+        />
+
         {/* Protected Routes */}
         <Route
           path="/"
@@ -88,6 +99,15 @@ export const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <DevicesOverview />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/devices/:id"
+          element={
+            <ProtectedRoute>
+              <DeviceDetails />
             </ProtectedRoute>
           }
         />

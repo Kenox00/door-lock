@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { useWebSocketContext } from '../../context/WebSocketContext';
 import { timeAgo } from '../../utils/format';
 
 export const DoorLockCard = ({ device }) => {
+  const navigate = useNavigate();
   const { sendDeviceCommand, isConnected } = useWebSocketContext();
   const [loading, setLoading] = useState(false);
 
@@ -101,12 +103,24 @@ export const DoorLockCard = ({ device }) => {
         </div>
       </div>
 
-      {/* View Camera Button */}
-      {device.hasCamera && (
-        <Button variant="outline" fullWidth className="mt-4">
-          View Camera
+      {/* Action Buttons */}
+      <div className="mt-4 flex gap-2">
+        {device.hasCamera && (
+          <Button variant="outline" fullWidth>
+            View Camera
+          </Button>
+        )}
+        <Button 
+          variant="secondary" 
+          fullWidth
+          onClick={() => navigate(`/devices/${device._id || device.id}`)}
+        >
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Details
         </Button>
-      )}
+      </div>
     </Card>
   );
 };
