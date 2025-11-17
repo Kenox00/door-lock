@@ -2,26 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card } from '../../components/ui/Card';
 import { CameraViewer } from '../../components/devices/CameraViewer';
-import { cameraApi } from '../../api/cameraApi';
+import { devicesApi } from '../../api/devicesApi';
+import { logsApi } from '../../api/logsApi';
 
 export const LiveFeed = () => {
   const [cameras, setCameras] = useState([]);
   const [selectedCamera, setSelectedCamera] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [recentVisitors, setRecentVisitors] = useState([]);
 
   useEffect(() => {
     loadCameras();
+    loadRecentVisitors();
   }, []);
 
   const loadCameras = async () => {
     try {
       setLoading(true);
-      const response = await cameraApi.getAllCameras();
+      // Get all devices and filter for camera types
+      const response = await devicesApi.getAllDevices();
       if (response.data) {
-        setCameras(response.data);
-        if (response.data.length > 0) {
-          setSelectedCamera(response.data[0]);
+        // Filter for camera devices (esp32-cam or camera type)
+        const cameraDevices = response.data.filter(device => 
+          device.deviceType === 'esp32-cam' || 
+          device.type === 'camera' ||
+          device.deviceType === 'camera'
+        );
+        setCameras(cameraDevices);
+        if (cameraDevices.length > 0) {
+          setSelectedCamera(cameraDevices[0]);
         }
       }
     } catch (err) {
@@ -29,6 +39,18 @@ export const LiveFeed = () => {
       setError(err.message || 'Failed to load cameras');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRecentVisitors = async () => {
+    try {
+      const response = await logsApi.getVisitorLogs({ limit: 10 });
+      if (response?.data) {
+        const visitors = Array.isArray(response.data) ? response.data : response.data.data || [];
+        setRecentVisitors(visitors);
+      }
+    } catch (err) {
+      console.error('Error loading recent visitors:', err);
     }
   };
 
@@ -162,11 +184,44 @@ export const LiveFeed = () => {
               <div>
                 <p className="text-sm font-medium text-gray-500">Status</p>
                 <p className={`text-base font-semibold mt-1 ${
-                  selectedCamera.online ? 'text-green-600' : 'text-red-600'
+                  selectedCamera.status === 'online' || selectedCamera.online ? 'text-green-600' : 'text-red-600'
                 }`}>
-                  {selectedCamera.online ? 'Online' : 'Offline'}
+                  {selectedCamera.status === 'online' || selectedCamera.online ? 'Online' : 'Offline'}
                 </p>
               </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Recent Visitor Snapshots */}
+        {recentVisitors.length > 0 && (
+          <Card title="Recent Visitor Snapshots">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {recentVisitors.map((visitor) => (
+                <div
+                  key={visitor._id}
+                  className="relative group cursor-pointer rounded-lg overflow-hidden border border-gray-200 hover:border-blue-500 transition-all"
+                >
+                  <img
+                    src={visitor.imageUrl}
+                    alt="Visitor"
+                    className="w-full h-32 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                    <div className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-center">
+                      <p className="text-xs font-medium">
+                        {new Date(visitor.timestamp).toLocaleString()}
+                      </p>
+                      <p className={`text-xs mt-1 font-semibold ${
+                        visitor.status === 'granted' ? 'text-green-400' : 
+                        visitor.status === 'denied' ? 'text-red-400' : 'text-yellow-400'
+                      }`}>
+                        {visitor.status.toUpperCase()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         )}

@@ -12,7 +12,14 @@ export const DevicesProvider = ({ children }) => {
     try {
       const response = await devicesApi.getAllDevices();
       if (response.data) {
-        setDevices(response.data);
+        // Normalize device data to ensure consistent field names
+        const normalizedDevices = response.data.map(device => ({
+          ...device,
+          type: device.deviceType || device.type, // Normalize type field
+          online: device.status === 'online', // Add online boolean for compatibility
+          id: device._id || device.id // Ensure id field exists
+        }));
+        setDevices(normalizedDevices);
         setError(null);
       }
     } catch (err) {
@@ -143,7 +150,7 @@ export const DevicesProvider = ({ children }) => {
   };
 
   const getOnlineDevices = () => {
-    return devices.filter(device => device.online === true);
+    return devices.filter(device => device.online === true || device.status === 'online');
   };
 
   const value = {
