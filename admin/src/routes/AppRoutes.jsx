@@ -7,7 +7,7 @@ import { Login } from '../pages/Auth/Login';
 import { Home } from '../pages/Dashboard/Home';
 import { DevicesOverview } from '../pages/Devices/DevicesOverview';
 import { LiveFeed } from '../pages/Camera/LiveFeed';
-import { ActivityLogs } from '../pages/Logs/ActivityLogs';
+import { ActivityLogs } from '../pages/ActivityLogs/ActivityLogs';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
