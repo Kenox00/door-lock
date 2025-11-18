@@ -51,7 +51,13 @@ app.use(cors({
   origin: NODE_ENV === 'development' ? true : allowedOrigins, // Allow all in development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization',
+    'X-Device-ID',
+    'X-Device-Token',
+    'X-Requested-With'
+  ]
 }));
 
 // Body parsing middleware

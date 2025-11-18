@@ -2,6 +2,7 @@ const { Device } = require('../models');
 const { successResponse, errorResponse } = require('../utils/response');
 const { validateRequiredFields, isValidObjectId } = require('../utils/validators');
 const { notifyDeviceStatus } = require('../services/socketService');
+const { generateDeviceToken, generateDeviceQRData } = require('../services/qrService');
 const logger = require('../utils/logger');
 
 /**
@@ -15,7 +16,7 @@ const logger = require('../utils/logger');
  */
 const registerDevice = async (req, res) => {
   try {
-    const { name, espId, location, firmwareVersion, metadata, deviceType } = req.body;
+    const { name, espId, location, firmwareVersion, metadata, deviceType, room } = req.body;
 
     // Validate required fields
     const validation = validateRequiredFields(req.body, ['name', 'espId']);
@@ -30,8 +31,7 @@ const registerDevice = async (req, res) => {
     }
 
     // Generate device token for authentication
-    const crypto = require('crypto');
-    const deviceToken = crypto.randomBytes(32).toString('hex');
+    const deviceToken = generateDeviceToken();
 
     // Create new device - assign to current user
     const device = new Device({
@@ -40,10 +40,13 @@ const registerDevice = async (req, res) => {
       espId: espId.toUpperCase(),
       deviceType: deviceType || 'door-lock',
       deviceToken,
+      room: room || location, // Use room if provided, fallback to location
       location,
       firmwareVersion,
       metadata,
-      status: 'online',
+      status: 'offline', // Start as offline until activated
+      activated: false,
+      online: false,
       lastSeen: new Date()
     });
 
@@ -59,15 +62,22 @@ const registerDevice = async (req, res) => {
       lastSeen: device.lastSeen
     });
 
+    // Generate QR code data
+    const qrData = await generateDeviceQRData(device);
+
     return successResponse(res, {
       id: device._id,
       name: device.name,
       espId: device.espId,
       deviceType: device.deviceType,
       deviceToken,
+      room: device.room,
       location: device.location,
       status: device.status,
-      createdAt: device.createdAt
+      activated: device.activated,
+      createdAt: device.createdAt,
+      qrCode: qrData.qrCode,
+      onboardingURL: qrData.onboardingURL
     }, 'Device registered successfully', 201);
 
   } catch (error) {
@@ -298,6 +308,115 @@ const getDeviceStats = async (req, res) => {
   }
 };
 
+/**
+ * Get device QR code
+ * GET /api/device/:id/qr
+ */
+const getDeviceQR = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return errorResponse(res, 'Invalid device ID', 400);
+    }
+
+    const device = await Device.findById(id).select('+deviceToken');
+
+    if (!device) {
+      return errorResponse(res, 'Device not found', 404);
+    }
+
+    const access = device.hasAccess(req.user.userId);
+    if (!access.hasAccess) {
+      return errorResponse(res, 'No access to this device', 403);
+    }
+
+    // Generate QR code data
+    const qrData = await generateDeviceQRData(device);
+
+    return successResponse(res, qrData, 'QR code generated successfully');
+
+  } catch (error) {
+    logger.error(`Get device QR error: ${error.message}`);
+    return errorResponse(res, error.message, 500);
+  }
+};
+
+/**
+ * Activate device (called when QR is scanned)
+ * POST /api/device/activate
+ */
+const activateDevice = async (req, res) => {
+  try {
+    const { deviceId, token } = req.body;
+
+    // Validate required fields
+    const validation = validateRequiredFields(req.body, ['deviceId', 'token']);
+    if (!validation.isValid) {
+      return errorResponse(res, `Missing required fields: ${validation.missing.join(', ')}`, 400);
+    }
+
+    if (!isValidObjectId(deviceId)) {
+      return errorResponse(res, 'Invalid device ID', 400);
+    }
+
+    // Find device with token
+    const device = await Device.findById(deviceId).select('+deviceToken');
+
+    if (!device) {
+      return errorResponse(res, 'Device not found', 404);
+    }
+
+    // Validate token
+    if (device.deviceToken !== token) {
+      logger.warn(`Invalid token for device activation: ${deviceId}`);
+      return errorResponse(res, 'Invalid device token', 401);
+    }
+
+    // Check if already activated
+    if (device.activated) {
+      return successResponse(res, {
+        deviceId: device._id,
+        name: device.name,
+        deviceType: device.deviceType,
+        room: device.room,
+        activated: true,
+        activatedAt: device.activatedAt,
+        message: 'Device already activated'
+      }, 'Device already activated');
+    }
+
+    // Activate device
+    device.activated = true;
+    device.activatedAt = new Date();
+    device.status = 'offline'; // Will be marked online when WebSocket connects
+    await device.save();
+
+    logger.info(`Device activated: ${device.name} (${device.espId})`);
+
+    // Notify clients about device activation
+    notifyDeviceStatus({
+      deviceId: device._id,
+      deviceName: device.name,
+      status: 'activated',
+      lastSeen: device.lastSeen
+    });
+
+    return successResponse(res, {
+      deviceId: device._id,
+      name: device.name,
+      deviceType: device.deviceType,
+      room: device.room,
+      activated: true,
+      activatedAt: device.activatedAt
+    }, 'Device activated successfully');
+
+  } catch (error) {
+    logger.error(`Activate device error: ${error.message}`);
+    return errorResponse(res, error.message, 500);
+  }
+};
+
 module.exports = {
   registerDevice,
   getAllDevices,
@@ -305,5 +424,7 @@ module.exports = {
   updateDevice,
   deviceHeartbeat,
   deleteDevice,
-  getDeviceStats
+  getDeviceStats,
+  getDeviceQR,
+  activateDevice
 };

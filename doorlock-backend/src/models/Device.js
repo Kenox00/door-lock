@@ -49,6 +49,22 @@ const deviceSchema = new mongoose.Schema({
     // Secure token for device authentication
     select: false // Don't return in queries by default
   },
+  room: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Room name cannot exceed 100 characters']
+  },
+  activated: {
+    type: Boolean,
+    default: false
+  },
+  activatedAt: {
+    type: Date
+  },
+  online: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
     enum: ['online', 'offline', 'maintenance'],

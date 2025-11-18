@@ -21,17 +21,32 @@ const uploadVisitorPhoto = async (req, res) => {
       return errorResponse(res, 'No image file uploaded', 400);
     }
 
-    const { deviceId } = req.body;
+    const { deviceId, deviceToken } = req.body;
 
     // Validate device ID
     if (!deviceId || !isValidObjectId(deviceId)) {
       return errorResponse(res, 'Valid device ID is required', 400);
     }
 
-    // Check if device exists
-    const device = await Device.findById(deviceId);
+    // Check if device exists and validate device token if provided
+    const device = await Device.findById(deviceId).select('+deviceToken');
     if (!device) {
       return errorResponse(res, 'Device not found', 404);
+    }
+
+    // If deviceToken is provided, validate it for device authentication
+    if (deviceToken) {
+      if (device.deviceToken !== deviceToken) {
+        logger.warn(`Invalid device token for upload from device ${deviceId}`);
+        return errorResponse(res, 'Invalid device token', 401);
+      }
+      
+      // Check if device is activated
+      if (!device.activated) {
+        return errorResponse(res, 'Device not activated', 403);
+      }
+      
+      logger.info(`Device authenticated for upload: ${device.name} (${device.espId})`);
     }
 
     // Upload image to Cloudinary
@@ -46,7 +61,8 @@ const uploadVisitorPhoto = async (req, res) => {
       status: 'pending',
       metadata: {
         ipAddress: req.ip,
-        userAgent: req.get('user-agent')
+        userAgent: req.get('user-agent'),
+        authenticatedViaToken: !!deviceToken
       }
     });
 
@@ -96,15 +112,29 @@ const getVisitorLogs = async (req, res) => {
       endDate 
     } = req.query;
 
-    // Build filter query
+    // Build filter query based on authentication type
     const filter = {};
+
+    // If device is authenticated, filter by device
+    if (req.device) {
+      filter.deviceId = req.device.deviceId;
+      logger.info(`Device ${req.device.name} requesting logs for its own device`);
+    } else if (req.user) {
+      // If user is authenticated, filter by devices they own or have access to
+      // For now, we'll get all logs they have access to
+      // TODO: Implement proper device access control
+      logger.info(`User ${req.user.username} requesting visitor logs`);
+    }
 
     if (status) {
       filter.status = status;
     }
 
     if (deviceId && isValidObjectId(deviceId)) {
-      filter.deviceId = deviceId;
+      // Additional device filter (only if user has access)
+      if (!req.device) { // Only apply if not already filtered by device auth
+        filter.deviceId = deviceId;
+      }
     }
 
     if (startDate || endDate) {
@@ -133,7 +163,8 @@ const getVisitorLogs = async (req, res) => {
       .skip(skip)
       .limit(limitNum);
 
-    logger.info(`Retrieved ${logs.length} visitor logs`);
+    const authType = req.device ? 'device' : 'user';
+    logger.info(`Retrieved ${logs.length} visitor logs for ${authType}`);
 
     return paginatedResponse(res, logs, pageNum, limitNum, total, 'Visitor logs retrieved successfully');
 

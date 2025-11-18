@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/Button';
 import { devicesApi } from '../../api/devicesApi';
+import { QRCodeModal } from './QRCodeModal';
 
 export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
   const [formData, setFormData] = useState({
@@ -8,11 +9,14 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
     espId: '',
     deviceType: 'door-lock',
     location: '',
+    room: '',
     firmwareVersion: '1.0.0',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState(null);
 
   const deviceTypes = [
     { value: 'door-lock', label: 'Door Lock' },
@@ -45,6 +49,20 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
           deviceToken: response.data.deviceToken,
           name: response.data.name,
         });
+
+        // Set QR data if available
+        if (response.data.qrCode && response.data.onboardingURL) {
+          setQrData({
+            deviceId: response.data.id,
+            deviceName: response.data.name,
+            deviceType: response.data.deviceType,
+            room: response.data.room,
+            qrCode: response.data.qrCode,
+            onboardingURL: response.data.onboardingURL,
+            activated: response.data.activated,
+            activatedAt: response.data.activatedAt
+          });
+        }
         
         // Notify parent component
         if (onDeviceAdded) {
@@ -65,12 +83,19 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
         espId: '',
         deviceType: 'door-lock',
         location: '',
+        room: '',
         firmwareVersion: '1.0.0',
       });
       setError('');
       setSuccess(null);
+      setQrData(null);
+      setShowQRModal(false);
       onClose();
     }
+  };
+
+  const handleShowQR = () => {
+    setShowQRModal(true);
   };
 
   const copyToClipboard = (text) => {
@@ -126,7 +151,7 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
                 <div className="space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex">
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
@@ -199,7 +224,7 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex">
-                      <div className="flex-shrink-0">
+                      <div className="shrink-0">
                         <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                         </svg>
@@ -216,7 +241,16 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
             </div>
 
             {/* Success Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end">
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+              {qrData && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleShowQR}
+                >
+                  View QR Code
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="primary"
@@ -303,10 +337,27 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
                   </select>
                 </div>
 
+                {/* Room */}
+                <div>
+                  <label htmlFor="room" className="block text-sm font-medium text-gray-700 mb-1">
+                    Room
+                  </label>
+                  <input
+                    type="text"
+                    id="room"
+                    name="room"
+                    value={formData.room}
+                    onChange={handleChange}
+                    maxLength={100}
+                    placeholder="e.g., Living Room, Bedroom, Office"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
                 {/* Location */}
                 <div>
                   <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                    Location
+                    Location (Optional)
                   </label>
                   <input
                     type="text"
@@ -315,7 +366,7 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
                     value={formData.location}
                     onChange={handleChange}
                     maxLength={100}
-                    placeholder="e.g., Main Entrance, Living Room"
+                    placeholder="e.g., Main Entrance, Back Door"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
                   />
                 </div>
@@ -359,6 +410,15 @@ export const AddDeviceModal = ({ isOpen, onClose, onDeviceAdded }) => {
           )}
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {qrData && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => setShowQRModal(false)}
+          qrData={qrData}
+        />
+      )}
     </div>
   );
 };

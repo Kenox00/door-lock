@@ -3,10 +3,7 @@ import { DashboardLayout } from '../../components/layout/DashboardLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { useDevices } from '../../hooks/useDevices';
-import { DoorLockCard } from '../../components/devices/DoorLockCard';
-import { LightCard } from '../../components/devices/LightCard';
-import { PlugCard } from '../../components/devices/PlugCard';
-import { MotionCard } from '../../components/devices/MotionCard';
+import { UniversalDeviceCard } from '../../components/devices/UniversalDeviceCard';
 import { AddDeviceModal } from '../../components/devices/AddDeviceModal';
 
 export const DevicesOverview = () => {
@@ -17,40 +14,21 @@ export const DevicesOverview = () => {
 
   const deviceTypes = [
     { id: 'all', label: 'All Devices', count: devices.length },
-    { id: 'door_lock', label: 'Door Locks', count: devices.filter(d => d.type === 'door_lock').length },
-    { id: 'light', label: 'Lights', count: devices.filter(d => d.type === 'light').length },
-    { id: 'plug', label: 'Plugs', count: devices.filter(d => d.type === 'plug').length },
-    { id: 'motion', label: 'Motion Sensors', count: devices.filter(d => d.type === 'motion').length },
-    { id: 'camera', label: 'Cameras', count: devices.filter(d => d.type === 'camera').length },
+    { id: 'door-lock', label: 'Door Locks', count: devices.filter(d => d.deviceType === 'door-lock').length },
+    { id: 'esp32-cam', label: 'Cameras', count: devices.filter(d => d.deviceType === 'esp32-cam').length },
+    { id: 'motion-sensor', label: 'Motion Sensors', count: devices.filter(d => d.deviceType === 'motion-sensor').length },
+    { id: 'other', label: 'Other', count: devices.filter(d => d.deviceType === 'other').length },
   ];
 
   const filteredDevices = devices.filter(device => {
-    const matchesFilter = filter === 'all' || device.type === filter;
+    const matchesFilter = filter === 'all' || device.deviceType === filter;
     const matchesSearch = !searchQuery || 
       device.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      device.location?.toLowerCase().includes(searchQuery.toLowerCase());
+      device.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.room?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      device.espId?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
-
-  const renderDeviceCard = (device) => {
-    switch (device.type) {
-      case 'door_lock':
-        return <DoorLockCard key={device.id || device._id} device={device} />;
-      case 'light':
-        return <LightCard key={device.id || device._id} device={device} />;
-      case 'plug':
-        return <PlugCard key={device.id || device._id} device={device} />;
-      case 'motion':
-        return <MotionCard key={device.id || device._id} device={device} />;
-      default:
-        return (
-          <Card key={device.id || device._id}>
-            <h3 className="text-lg font-semibold">{device.name}</h3>
-            <p className="text-sm text-gray-500">{device.type}</p>
-          </Card>
-        );
-    }
-  };
 
   if (loading) {
     return (
@@ -123,7 +101,9 @@ export const DevicesOverview = () => {
         {/* Devices Grid */}
         {filteredDevices.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredDevices.map(device => renderDeviceCard(device))}
+            {filteredDevices.map(device => (
+              <UniversalDeviceCard key={device._id || device.id} device={device} />
+            ))}
           </div>
         ) : (
           <Card>

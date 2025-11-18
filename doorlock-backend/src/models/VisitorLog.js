@@ -7,10 +7,24 @@ const mongoose = require('mongoose');
 const visitorLogSchema = new mongoose.Schema({
   imageUrl: {
     type: String,
-    required: [true, 'Image URL is required']
+    required: function() {
+      // Image is required unless this is a bell press event
+      return !this.bellPressed;
+    }
   },
   imagePublicId: {
     type: String, // Cloudinary public ID for deletion
+  },
+  bellPressed: {
+    type: Boolean,
+    default: false
+  },
+  pressedBy: {
+    type: String,
+    default: 'visitor'
+  },
+  pressedAt: {
+    type: Date
   },
   status: {
     type: String,

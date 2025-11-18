@@ -59,4 +59,16 @@ export const devicesApi = {
     const response = await axiosClient.get(`/logs/device/${deviceId}`, { params });
     return response;
   },
+
+  // Get device QR code
+  getDeviceQR: async (deviceId) => {
+    const response = await axiosClient.get(`/device/${deviceId}/qr`);
+    return response;
+  },
+
+  // Activate device (called when QR is scanned)
+  activateDevice: async (deviceId, token) => {
+    const response = await axiosClient.post('/device/activate', { deviceId, token });
+    return response;
+  },
 };

@@ -45,6 +45,20 @@ router.get('/:id', authenticate, asyncHandler(deviceController.getDeviceById));
 router.put('/:id', authenticate, asyncHandler(deviceController.updateDevice));
 
 /**
+ * @route   GET /api/device/:id/qr
+ * @desc    Get device QR code for onboarding
+ * @access  Private
+ */
+router.get('/:id/qr', authenticate, asyncHandler(deviceController.getDeviceQR));
+
+/**
+ * @route   POST /api/device/activate
+ * @desc    Activate device using QR code token
+ * @access  Public (uses device token for auth)
+ */
+router.post('/activate', asyncHandler(deviceController.activateDevice));
+
+/**
  * @route   POST /api/device/:id/heartbeat
  * @desc    Device heartbeat (update last seen)
  * @access  Public (can be secured with device token)

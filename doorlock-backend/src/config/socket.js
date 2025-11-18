@@ -61,34 +61,87 @@ const SOCKET_EVENTS = {
 const authenticateSocket = async (socket, next) => {
   try {
     const token = socket.handshake.auth.token || socket.handshake.query.token;
+    const deviceId = socket.handshake.auth.deviceId;
+    const clientType = socket.handshake.auth.clientType || 'dashboard';
     
     if (!token) {
       logger.warn(`Socket connection rejected: No token provided (${socket.id})`);
+      logger.warn(`Handshake details (truncated): ${JSON.stringify({ clientType, deviceId }, null, 2)}`);
       return next(new Error('Authentication required'));
     }
 
-    // Verify token
-    const decoded = verifyToken(token);
-    
-    // Check if user exists and is active
-    const user = await User.findById(decoded.userId);
-    if (!user) {
-      logger.warn(`Socket connection rejected: User not found (${socket.id})`);
-      return next(new Error('Invalid user'));
+    // Check if this is a device connection (with deviceId and deviceToken)
+    if (clientType === 'device' && deviceId) {
+      try {
+        // Find device and validate token
+        const device = await Device.findById(deviceId).select('+deviceToken');
+        
+        if (!device) {
+          logger.warn(`Socket connection rejected: Device not found (${socket.id})`);
+          return next(new Error('Device not found'));
+        }
+
+        if (device.deviceToken !== token) {
+          logger.warn(`Socket connection rejected: Invalid device token (${socket.id}) for device ${deviceId}`);
+          return next(new Error('Invalid device token'));
+        }
+
+        if (!device.activated) {
+          logger.warn(`Socket connection rejected: Device not activated (${socket.id})`);
+          return next(new Error('Device not activated'));
+        }
+
+        // Attach device info to socket
+        socket.deviceId = device._id.toString();
+        socket.userId = device.userId.toString();
+        socket.userRole = 'device';
+        socket.username = device.name;
+        socket.clientType = 'device';
+        
+        // Mark device as online
+        device.online = true;
+        device.status = 'online';
+        device.lastSeen = new Date();
+        await device.save();
+
+        logger.info(`Device authenticated via WebSocket: ${socket.id} - Device: ${device.name} (user ${socket.userId})`);
+        next();
+        return;
+
+      } catch (error) {
+        logger.error(`Device authentication error: ${error.message}`);
+        return next(new Error('Device authentication failed'));
+      }
     }
 
-    // Attach user info to socket
-    socket.userId = user._id.toString();
-    socket.userRole = user.role;
-    socket.username = user.username;
-    socket.clientType = socket.handshake.auth.clientType || 'dashboard';
-    
-    logger.info(`Socket authenticated: ${socket.id} - User: ${user.username}, Role: ${user.role}`);
-    next();
+    // Regular user/dashboard authentication with JWT
+    try {
+      const decoded = verifyToken(token);
+      
+      // Check if user exists and is active
+      const user = await User.findById(decoded.userId);
+      if (!user) {
+        logger.warn(`Socket connection rejected: User not found (${socket.id})`);
+        return next(new Error('Invalid user'));
+      }
+
+      // Attach user info to socket
+      socket.userId = user._id.toString();
+      socket.userRole = user.role;
+      socket.username = user.username;
+      socket.clientType = clientType;
+      
+      logger.info(`Socket authenticated: ${socket.id} - User: ${user.username}, Role: ${user.role}`);
+      next();
+
+    } catch (error) {
+      logger.error(`Socket authentication error: ${error.message}`);
+      next(new Error('Invalid token'));
+    }
 
   } catch (error) {
     logger.error(`Socket authentication error: ${error.message}`);
-    next(new Error('Invalid token'));
+    next(new Error('Authentication failed'));
   }
 };
 
@@ -160,6 +213,7 @@ const handleDeviceConnection = async (socket) => {
   try {
     // Device must provide deviceId
     const deviceId = socket.handshake.auth.deviceId;
+    logger.info(`🔌 handleDeviceConnection start for socket ${socket.id}, deviceId=${deviceId}, userId=${socket.userId}`);
     
     if (!deviceId) {
       logger.error('Device connection missing deviceId');
@@ -169,25 +223,42 @@ const handleDeviceConnection = async (socket) => {
 
     // Verify device belongs to user
     const device = await Device.findById(deviceId);
-    if (!device || device.userId.toString() !== socket.userId) {
-      logger.error(`Device ${deviceId} not found or unauthorized`);
+    
+    if (!device) {
+      logger.error(`❌ Device ${deviceId} not found in database`);
       socket.disconnect();
       return;
     }
+    
+    logger.info(`🔍 Device found: ${device.name}`);
+    logger.info(`🔍 Device userId: ${device.userId.toString()}`);
+    logger.info(`🔍 Socket userId: ${socket.userId}`);
+    logger.info(`🔍 Match: ${device.userId.toString() === socket.userId}`);
+    
+    if (device.userId.toString() !== socket.userId) {
+      logger.error(`❌ Device ${deviceId} unauthorized - userId mismatch`);
+      logger.error(`   Expected: ${device.userId.toString()}`);
+      logger.error(`   Got: ${socket.userId}`);
+      socket.disconnect();
+      return;
+    }
+    
+    logger.info(`✅ Device ${deviceId} authorization successful`);
 
     socket.deviceId = deviceId;
     socket.join(`device:${deviceId}`);
 
-    // Register in connection manager
-    await deviceConnectionManager.registerDevice(
-      deviceId,
-      'socket',
-      socket,
-      {
-        ipAddress: socket.handshake.address,
-        userAgent: socket.handshake.headers['user-agent']
-      }
-    );
+    // Skip device connection manager for now to avoid getIO error
+    // TODO: Fix deviceConnectionManager to not call getIO during registration
+    // await deviceConnectionManager.registerDevice(
+    //   deviceId,
+    //   'socket',
+    //   socket,
+    //   {
+    //     ipAddress: socket.handshake.address,
+    //     userAgent: socket.handshake.headers['user-agent']
+    //   }
+    // );
 
     logger.info(`Device ${deviceId} connected via WebSocket`);
 
@@ -324,14 +395,25 @@ const setupSocketHandlers = (socket) => {
 
         // Send ACCESS_GRANTED to camera device
         const deviceRoom = `device:${visitor.deviceId}`;
-        io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_GRANTED, {
+        const grantedPayload = {
           visitorId,
+          _id: visitorId,  // Include both for compatibility
           approved: true,
           note,
           timestamp,
-        });
+          deviceId: visitor.deviceId,
+          deviceName: visitor.deviceName
+        };
+        
+        logger.info(`📤 Emitting ACCESS_GRANTED to room '${deviceRoom}'`);
+        logger.info(`📤 Payload: ${JSON.stringify(grantedPayload)}`);
+        
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        logger.info(`📊 Sockets in room '${deviceRoom}': ${socketsInRoom ? socketsInRoom.size : 0}`);
+        
+        io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_GRANTED, grantedPayload);
 
-        logger.info(`📤 Access granted message sent to device ${visitor.deviceId}`);
+        logger.info(`✅ Access granted message sent to device ${visitor.deviceId}`);
 
         // Notify all admins about the processed visitor
         emitToRoom('admin', SOCKET_EVENTS.VISITOR_PROCESSED, {
@@ -367,14 +449,25 @@ const setupSocketHandlers = (socket) => {
 
         // Send ACCESS_DENIED to camera device
         const deviceRoom = `device:${visitor.deviceId}`;
-        io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_DENIED, {
+        const deniedPayload = {
           visitorId,
+          _id: visitorId,  // Include both for compatibility
           approved: false,
           reason,
           timestamp,
-        });
+          deviceId: visitor.deviceId,
+          deviceName: visitor.deviceName
+        };
+        
+        logger.info(`📤 Emitting ACCESS_DENIED to room '${deviceRoom}'`);
+        logger.info(`📤 Payload: ${JSON.stringify(deniedPayload)}`);
+        
+        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+        logger.info(`📊 Sockets in room '${deviceRoom}': ${socketsInRoom ? socketsInRoom.size : 0}`);
+        
+        io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_DENIED, deniedPayload);
 
-        logger.info(`📤 Access denied message sent to device ${visitor.deviceId}`);
+        logger.info(`✅ Access denied message sent to device ${visitor.deviceId}`);
 
         // Notify all admins about the processed visitor
         emitToRoom('admin', SOCKET_EVENTS.VISITOR_PROCESSED, {
@@ -428,6 +521,56 @@ const setupSocketHandlers = (socket) => {
       logger.error(`Snapshot ready error: ${error.message}`);
     }
   });
+
+  // Handle bell-pressed event from camera devices
+  socket.on('bell-pressed', async (data) => {
+    try {
+      const { deviceId, timestamp, pressedBy, metadata } = data;
+      logger.info(`🔔 Bell pressed on device ${deviceId} by ${pressedBy}`);
+      
+      // Get device info
+      const device = await Device.findById(deviceId);
+      if (!device) {
+        logger.error(`Bell press: Device ${deviceId} not found`);
+        return;
+      }
+      
+      // Create a visitor log entry for the bell press
+      // This will be updated with a photo when the upload happens
+      const { VisitorLog } = require('../models');
+      const visitorLog = new VisitorLog({
+        deviceId: device._id,
+        deviceName: device.name,
+        status: 'pending',
+        bellPressed: true,
+        pressedBy,
+        pressedAt: new Date(timestamp),
+        metadata: {
+          source: 'bell-press',
+          ...metadata
+        }
+      });
+      
+      await visitorLog.save();
+      logger.info(`📝 Visitor log created for bell press: ${visitorLog._id}`);
+      
+      // Notify all admins about the new visitor
+      emitToRoom('admin', SOCKET_EVENTS.NEW_VISITOR, {
+        visitorId: visitorLog._id,
+        deviceId: device._id,
+        deviceName: device.name,
+        timestamp: visitorLog.timestamp,
+        status: 'pending',
+        bellPressed: true,
+        message: `Bell pressed at ${device.name}`
+      });
+      
+      logger.info(`📡 Bell press notification sent to admins for device ${device.name}`);
+      
+    } catch (error) {
+      logger.error(`Bell press handler error: ${error.message}`);
+    }
+  });
 };
 
 /**
@@ -437,9 +580,27 @@ const handleDisconnection = async (socket, reason) => {
   try {
     logger.info(`Client disconnected: ${socket.id} - Reason: ${reason}`);
 
-    // If device, unregister from connection manager
+    // If device, unregister from connection manager and mark offline
     if (socket.deviceId) {
       await deviceConnectionManager.unregisterDevice(socket.deviceId, 'socket', reason);
+      
+      // Mark device as offline
+      const device = await Device.findById(socket.deviceId);
+      if (device) {
+        device.online = false;
+        device.status = 'offline';
+        device.lastSeen = new Date();
+        await device.save();
+
+        // Notify clients about device going offline
+        io.emit(SOCKET_EVENTS.DEVICE_STATUS, {
+          deviceId: device._id,
+          deviceName: device.name,
+          status: 'offline',
+          online: false,
+          lastSeen: device.lastSeen
+        });
+      }
     }
 
     // Clean up rooms

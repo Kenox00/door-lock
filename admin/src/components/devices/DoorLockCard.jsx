@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { QRCodeModal } from './QRCodeModal';
 import { useWebSocketContext } from '../../context/WebSocketContext';
+import { devicesApi } from '../../api/devicesApi';
 import { timeAgo } from '../../utils/format';
 
 export const DoorLockCard = ({ device }) => {
   const navigate = useNavigate();
   const { sendDeviceCommand, isConnected } = useWebSocketContext();
   const [loading, setLoading] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrData, setQrData] = useState(null);
+  const [loadingQR, setLoadingQR] = useState(false);
 
   const isLocked = device.lockState === 'locked' || device.locked || device.status === 'locked';
   const isOnline = device.status === 'online' || device.online !== false;
@@ -24,6 +29,22 @@ export const DoorLockCard = ({ device }) => {
     
     // Keep loading state for 2 seconds to show visual feedback
     setTimeout(() => setLoading(false), 2000);
+  };
+
+  const handleViewQR = async () => {
+    try {
+      setLoadingQR(true);
+      const response = await devicesApi.getDeviceQR(device._id || device.id);
+      if (response.data) {
+        setQrData(response.data);
+        setShowQRModal(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch QR code:', error);
+      alert('Failed to load QR code');
+    } finally {
+      setLoadingQR(false);
+    }
   };
 
   return (
@@ -105,11 +126,17 @@ export const DoorLockCard = ({ device }) => {
 
       {/* Action Buttons */}
       <div className="mt-4 flex gap-2">
-        {device.hasCamera && (
-          <Button variant="outline" fullWidth>
-            View Camera
-          </Button>
-        )}
+        <Button 
+          variant="outline" 
+          fullWidth
+          onClick={handleViewQR}
+          loading={loadingQR}
+        >
+          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+          </svg>
+          QR Code
+        </Button>
         <Button 
           variant="secondary" 
           fullWidth
@@ -121,6 +148,18 @@ export const DoorLockCard = ({ device }) => {
           Details
         </Button>
       </div>
+
+      {/* QR Code Modal */}
+      {qrData && (
+        <QRCodeModal
+          isOpen={showQRModal}
+          onClose={() => {
+            setShowQRModal(false);
+            setQrData(null);
+          }}
+          qrData={qrData}
+        />
+      )}
     </Card>
   );
 };

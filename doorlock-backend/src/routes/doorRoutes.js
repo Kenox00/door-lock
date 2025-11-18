@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const doorController = require('../controllers/doorController');
-const { authenticate, optionalAuth } = require('../middlewares/auth');
+const { authenticate, flexAuth, optionalAuth } = require('../middlewares/auth');
 const { upload } = require('../middlewares/upload');
 const { uploadLimiter } = require('../middlewares/rateLimiter');
 const { asyncHandler } = require('../middlewares/errorHandler');
@@ -14,7 +14,7 @@ const { asyncHandler } = require('../middlewares/errorHandler');
 /**
  * @route   POST /api/door/upload
  * @desc    Upload visitor photo from DoorApp
- * @access  Public (can be secured with API key in production)
+ * @access  Public (can be secured with device token)
  */
 router.post(
   '/upload',
@@ -26,9 +26,9 @@ router.post(
 /**
  * @route   GET /api/door/logs
  * @desc    Get all visitor logs with pagination and filters
- * @access  Private
+ * @access  Private (JWT) or Device (device token)
  */
-router.get('/logs', authenticate, asyncHandler(doorController.getVisitorLogs));
+router.get('/logs', flexAuth, asyncHandler(doorController.getVisitorLogs));
 
 /**
  * @route   GET /api/door/logs/pending

@@ -72,7 +72,7 @@ export const useWebSocket = (options = {}) => {
       socketRef.current = null;
     }
 
-    const serverUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000';
+    const serverUrl = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
     console.log('🔌 Connecting to WebSocket:', serverUrl);
 

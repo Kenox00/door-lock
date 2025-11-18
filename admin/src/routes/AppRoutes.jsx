@@ -8,6 +8,8 @@ import { Signup } from '../pages/Auth/Signup';
 import { Home } from '../pages/Dashboard/Home';
 import { DevicesOverview } from '../pages/Devices/DevicesOverview';
 import { DeviceDetails } from '../pages/Devices/DeviceDetails';
+import { DeviceManagement } from '../pages/Devices/DeviceManagement';
+import { DeviceConnect } from '../pages/Devices/DeviceConnect';
 import { LiveFeed } from '../pages/Camera/LiveFeed';
 import { ActivityLogs } from '../pages/ActivityLogs/ActivityLogs';
 
@@ -104,12 +106,27 @@ export const AppRoutes = () => {
         />
 
         <Route
+          path="/devices/management"
+          element={
+            <ProtectedRoute>
+              <DeviceManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/devices/:id"
           element={
             <ProtectedRoute>
               <DeviceDetails />
             </ProtectedRoute>
           }
+        />
+
+        {/* Public device activation route (no auth required) */}
+        <Route
+          path="/device/connect"
+          element={<DeviceConnect />}
         />
 
         <Route
