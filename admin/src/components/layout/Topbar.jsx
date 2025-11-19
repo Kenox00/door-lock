@@ -3,11 +3,15 @@ import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../context/NotificationContext';
 import { useWebSocketContext } from '../../context/WebSocketContext';
 import ConnectionStatus from '../ui/ConnectionStatus';
+import { useUISettings } from '../../context/UISettingsContext';
+import { menuItems } from './Sidebar';
 import { NotificationDropdown } from '../ui/NotificationDropdown';
 import { VisitorApprovalModal } from '../ui/VisitorApprovalModal';
 
 export const Topbar = () => {
   const { user, logout } = useAuth();
+  const { density, toggleDensity } = useUISettings();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const notification = useNotification();
   const { approveVisitor, rejectVisitor } = useWebSocketContext();
   
@@ -42,17 +46,23 @@ export const Topbar = () => {
   };
 
   return (
-    <div className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
+    <div className="bg-white shadow-sm border-b border-gray-200 h-14 md:h-16 flex items-center justify-between px-4 sm:px-6 relative">
       {/* Left Section */}
-      <div className="flex items-center space-x-4">
-        <h2 className="text-xl font-semibold text-gray-900">Dashboard</h2>
-        
-        {/* Connection Status */}
+      <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+        {/* Mobile Sidebar Toggle */}
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="md:hidden p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600"
+          aria-label="Open navigation"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <h2 className="hidden xs:block text-lg md:text-xl font-semibold text-gray-900 truncate">Dashboard</h2>
         <ConnectionStatus />
       </div>
 
       {/* Right Section */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-4">
         {/* Notifications */}
         <div className="relative">
           <button 
@@ -79,18 +89,23 @@ export const Topbar = () => {
         </div>
 
         {/* Settings */}
-        <button className="p-2 text-gray-500 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
+        <button
+          onClick={toggleDensity}
+          className="p-2 text-gray-500 hover:text-green-600 rounded-lg hover:bg-green-50 transition-colors hidden sm:inline-flex"
+          aria-label="Toggle density"
+        >
+          {density === 'compact' ? (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M8 10h8M6 14h12M10 18h4"/></svg>
+          ) : (
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18M6 10h12M4 15h16M8 20h8"/></svg>
+          )}
         </button>
 
         {/* User Menu */}
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
-            className="flex items-center space-x-3 focus:outline-none hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center space-x-2 sm:space-x-3 focus:outline-none hover:bg-gray-50 px-2 sm:px-3 py-2 rounded-lg transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold text-sm">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
@@ -139,6 +154,40 @@ export const Topbar = () => {
           onReject={handleReject}
           onClose={() => setSelectedVisitor(null)}
         />
+      )}
+
+      {/* Mobile Sidebar Drawer */}
+      {mobileSidebarOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+          <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-lg z-50 flex flex-col">
+            <div className="flex items-center justify-between px-4 h-14 border-b border-gray-200">
+              <h1 className="text-green-600 font-bold">Smart Home</h1>
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-2 rounded-md hover:bg-gray-50"
+                aria-label="Close navigation"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+              {menuItems.map(item => (
+                <button
+                  key={item.path}
+                  onClick={() => { setMobileSidebarOpen(false); window.location.hash = `#${item.path}`; }}
+                  className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                >
+                  {item.icon}
+                  <span className="ml-3">{item.name}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/Button';
 import { X, Copy, Check } from 'lucide-react';
 
 export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
   const [copied, setCopied] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      // allow next paint to apply transition classes
+      requestAnimationFrame(() => setVisible(true));
+    } else {
+      setVisible(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen || !qrData) return null;
 
@@ -27,10 +37,15 @@ export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5">
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className={`absolute inset-0 bg-white/10 backdrop-blur-md transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}
+      />
+      <div className={`relative bg-white rounded-xl shadow-xl w-full max-w-sm sm:max-w-md mx-auto overflow-hidden max-h-[85vh] flex flex-col transition-all duration-300 ease-out ${visible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+        <div className="bg-linear-to-r from-blue-600 to-blue-700 px-4 sm:px-5 py-3.5 flex items-center justify-between">            
           <div>
             <h2 className="text-xl font-bold text-white">Device QR Code</h2>
             <p className="text-blue-100 text-sm">{qrData.deviceName}</p>
@@ -44,9 +59,9 @@ export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 sm:p-5 overflow-y-auto">
           {/* Device Info */}
-          <div className="mb-6 bg-gray-50 rounded-lg p-4">
+          <div className="mb-4 sm:mb-5 bg-gray-50 rounded-lg p-3 sm:p-4">
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div>
                 <span className="text-gray-600">Device Type:</span>
@@ -78,18 +93,18 @@ export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
           </div>
 
           {/* QR Code */}
-          <div className="flex justify-center mb-6">
-            <div className="bg-white p-4 rounded-xl shadow-lg border-2 border-gray-200">
+          <div className="flex justify-center mb-4 sm:mb-5">
+            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-lg border border-gray-200">
               <img
                 src={qrData.qrCode}
                 alt="Device QR Code"
-                className="w-64 h-64"
+                className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 object-contain"
               />
             </div>
           </div>
 
           {/* Instructions */}
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="mb-4 sm:mb-5 bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
             <h3 className="font-semibold text-blue-900 mb-2 text-sm">
               📱 Setup Instructions
             </h3>
@@ -102,7 +117,7 @@ export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
           </div>
 
           {/* Onboarding URL */}
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-5">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Onboarding Link
             </label>
@@ -137,7 +152,7 @@ export const QRCodeModal = ({ isOpen, onClose, qrData }) => {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 pt-1">
             <Button
               onClick={handleDownloadQR}
               variant="secondary"

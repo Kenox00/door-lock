@@ -12,7 +12,7 @@ export const Card = ({
 }) => {
   const baseClasses = 'bg-white rounded-lg shadow-sm border border-gray-200';
   const hoverClasses = hover ? 'hover:shadow-md hover:border-green-200 transition-all duration-200' : '';
-  const paddingClasses = padding ? 'p-6' : '';
+  const paddingClasses = padding ? 'p-4 sm:p-6' : '';
   
   return (
     <div 

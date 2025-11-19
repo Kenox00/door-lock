@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
-const menuItems = [
+export const menuItems = [
   {
     name: 'Dashboard',
     path: '/',
@@ -71,20 +71,20 @@ export const Sidebar = () => {
   };
 
   return (
-    <div className="flex flex-col w-64 bg-white border-r border-gray-200 min-h-screen shadow-sm">
+    <div className="hidden md:flex flex-col md:w-64 w-full bg-white/90 backdrop-blur-sm border-r border-gray-200 md:min-h-screen shadow-sm">
       {/* Logo */}
-      <div className="flex items-center justify-center h-16 border-b border-gray-200">
-        <h1 className="text-green-600 text-xl font-bold">Smart Home</h1>
+      <div className="flex items-center justify-center h-14 md:h-16 border-b border-gray-200">
+        <h1 className="text-green-600 text-lg md:text-xl font-bold tracking-tight">Smart Home</h1>
       </div>
 
       {/* User Info */}
-      <div className="flex items-center px-4 py-4 border-b border-gray-200">
-        <div className="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white font-semibold">
+      <div className="flex items-center px-4 py-3 md:py-4 border-b border-gray-200">
+        <div className="w-10 h-10 rounded-full bg-linear-to-br from-green-600 to-green-500 flex items-center justify-center text-white font-semibold shadow-inner">
           {user?.name?.charAt(0).toUpperCase() || 'U'}
         </div>
-        <div className="ml-3">
-          <p className="text-gray-900 text-sm font-medium">{user?.name || 'User'}</p>
-          <p className="text-gray-500 text-xs">{user?.email || 'user@example.com'}</p>
+        <div className="ml-3 overflow-hidden">
+          <p className="text-gray-900 text-sm font-semibold truncate">{user?.name || 'User'}</p>
+          <p className="text-gray-500 text-xs truncate">{user?.email || 'user@example.com'}</p>
         </div>
       </div>
 
@@ -98,7 +98,7 @@ export const Sidebar = () => {
               flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
               ${
                 isActive(item.path)
-                  ? 'bg-green-50 text-green-700 border-l-4 border-green-600'
+                  ? 'bg-green-50 text-green-700 md:border-l-4 md:border-green-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }
             `}
@@ -110,11 +110,9 @@ export const Sidebar = () => {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-gray-200">
-        <div className="flex items-center justify-between text-gray-500 text-xs">
-          <span>v1.0.0</span>
-          <span>© 2025</span>
-        </div>
+      <div className="px-4 py-3 md:py-4 border-t border-gray-200 text-[11px] md:text-xs text-gray-500 flex items-center justify-between">
+        <span>v1.0.0</span>
+        <span>© 2025</span>
       </div>
     </div>
   );

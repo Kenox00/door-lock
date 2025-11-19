@@ -4,6 +4,7 @@ import { DevicesProvider } from './context/DevicesContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { AppRoutes } from './routes/AppRoutes';
+import { UISettingsProvider } from './context/UISettingsContext';
 
 function App() {
   return (
@@ -11,7 +12,9 @@ function App() {
       <DevicesProvider>
         <NotificationProvider>
           <WebSocketProvider>
-            <AppRoutes />
+            <UISettingsProvider>
+              <AppRoutes />
+            </UISettingsProvider>
           </WebSocketProvider>
         </NotificationProvider>
       </DevicesProvider>

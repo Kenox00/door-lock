@@ -6,10 +6,13 @@ import { QRCodeModal } from './QRCodeModal';
 import { useWebSocketContext } from '../../context/WebSocketContext';
 import { devicesApi } from '../../api/devicesApi';
 import { timeAgo } from '../../utils/format';
+import { QrCode, Eye, Lock, Unlock } from 'lucide-react';
+import { useUISettings } from '../../context/UISettingsContext';
 
 export const DoorLockCard = ({ device }) => {
   const navigate = useNavigate();
   const { sendDeviceCommand, isConnected } = useWebSocketContext();
+  const { density } = useUISettings();
   const [loading, setLoading] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [qrData, setQrData] = useState(null);
@@ -48,104 +51,96 @@ export const DoorLockCard = ({ device }) => {
   };
 
   return (
-    <Card hover className="relative">
-      {/* Status Indicator */}
-      <div className="absolute top-4 right-4">
-        <div
-          className={`w-3 h-3 rounded-full ${
-            isOnline ? 'bg-green-500' : 'bg-gray-300'
-          }`}
-          title={isOnline ? 'Online' : 'Offline'}
-        />
-      </div>
-
-      {/* Icon */}
-      <div className={`flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-        isLocked ? 'bg-gray-100' : 'bg-green-100'
-      }`}>
-        <svg className={`w-8 h-8 ${
-          isLocked ? 'text-gray-600' : 'text-green-600'
-        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d={
-              isLocked
-                ? 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z'
-                : 'M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z'
-            }
-          />
-        </svg>
-      </div>
-
-      {/* Device Info */}
-      <h3 className="text-lg font-semibold text-gray-900 mb-1">
-        {device.name || 'Door Lock'}
-      </h3>
-      <p className="text-sm text-gray-500 mb-4">{device.location || 'Front Door'}</p>
-
-      {/* Status Badge */}
-      <div className="flex items-center justify-center mb-4">
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium border ${
-            isLocked
-              ? 'bg-gray-100 text-gray-700 border-gray-300'
-              : 'bg-green-100 text-green-700 border-green-300'
-          }`}
-        >
-          {isLocked ? 'Locked' : 'Unlocked'}
-        </span>
-      </div>
-
-      {/* Controls */}
-      <Button
-        variant={isLocked ? 'success' : 'danger'}
-        fullWidth
-        loading={loading}
-        disabled={!isOnline || !isConnected}
-        onClick={handleToggleLock}
-        className="mb-4"
-      >
-        {isLocked ? 'Unlock' : 'Lock'}
-      </Button>
-
-      {/* Additional Info */}
-      <div className="border-t border-gray-200 pt-4 space-y-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Last Activity:</span>
-          <span className="text-gray-900 font-medium">
-            {timeAgo(device.lastUpdated || device.updatedAt)}
+    <Card hover className={`relative flex flex-col h-full ${density === 'compact' ? 'p-3 sm:p-4 gap-2 min-h-[150px]' : 'p-4 sm:p-5 gap-3 min-h-[180px]'}`}>
+      {/* Header Row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`flex items-center justify-center ${density === 'compact' ? 'w-10 h-10' : 'w-12 h-12'} rounded-lg ${isLocked ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-600'}`}>
+            {isLocked ? (
+              <Lock className={density === 'compact' ? 'w-5 h-5' : 'w-6 h-6'} />
+            ) : (
+              <Unlock className={density === 'compact' ? 'w-5 h-5' : 'w-6 h-6'} />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className={`font-semibold text-gray-900 truncate ${density === 'compact' ? 'text-sm' : 'text-base'}`} title={device.name || 'Door Lock'}>
+              {device.name || 'Door Lock'}
+            </h3>
+            <p className="text-xs text-gray-500 truncate">Door Lock{device.location ? ` • ${device.location}` : ''}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${isOnline ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${isLocked ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'}`}>
+            {isLocked ? 'Locked' : 'Unlocked'}
           </span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">Battery:</span>
-          <span className="text-gray-900 font-medium">{device.battery || 95}%</span>
-        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="mt-4 flex gap-2">
-        <Button 
-          variant="outline" 
+      {/* Meta Grid */}
+      <div className={`grid grid-cols-2 ${density === 'compact' ? 'gap-x-3 gap-y-1 text-[11px]' : 'gap-x-4 gap-y-2 text-xs'}`}>
+        <div className="space-y-0.5">
+          <p className="text-gray-500">Last Activity</p>
+          <p className="text-gray-900 truncate" title={timeAgo(device.lastUpdated || device.updatedAt)}>
+            {timeAgo(device.lastUpdated || device.updatedAt)}
+          </p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-gray-500">Battery</p>
+          <p className="text-gray-900 font-medium">{device.battery || 95}%</p>
+        </div>
+        {device.location && (
+          <div className="space-y-0.5 col-span-2">
+            <p className="text-gray-500">Location</p>
+            <p className="text-gray-900 truncate" title={device.location}>{device.location}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Lock/Unlock Button */}
+      <div className={`${density === 'compact' ? 'mt-1' : 'mt-2'}`}>
+        <Button
+          variant={isLocked ? 'success' : 'danger'}
           fullWidth
+          loading={loading}
+          disabled={!isOnline || !isConnected}
+          onClick={handleToggleLock}
+          className={`flex items-center justify-center gap-2 ${density === 'compact' ? 'text-xs py-1.5' : 'text-sm py-2'}`}
+        >
+          {isLocked ? (
+            <>
+              <Unlock className="w-4 h-4" />
+              Unlock Door
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4" />
+              Lock Door
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Actions Row */}
+      <div className={`mt-auto flex items-center gap-2 ${density === 'compact' ? 'pt-0.5' : 'pt-1'}`}>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleViewQR}
           loading={loadingQR}
+          className={`flex items-center gap-1 px-2 py-1 ${density === 'compact' ? 'text-[11px]' : 'text-xs'}`}
         >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-          </svg>
-          QR Code
+          <QrCode className="w-4 h-4" /> QR
         </Button>
-        <Button 
-          variant="secondary" 
-          fullWidth
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => navigate(`/devices/${device._id || device.id}`)}
+          className={`flex items-center gap-1 px-2 py-1 ${density === 'compact' ? 'text-[11px]' : 'text-xs'}`}
         >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Details
+          <Eye className="w-4 h-4" /> Details
         </Button>
       </div>
 
