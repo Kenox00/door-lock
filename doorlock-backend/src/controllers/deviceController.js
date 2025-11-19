@@ -417,6 +417,74 @@ const activateDevice = async (req, res) => {
   }
 };
 
+/**
+ * Send command to device
+ * POST /api/device/:id/command
+ */
+const sendDeviceCommand = async (req, res) => {
+  try {
+    const { id: deviceId } = req.params;
+    const { command, payload = {} } = req.body;
+    const userId = req.user.userId;
+
+    // Validate device ID
+    if (!isValidObjectId(deviceId)) {
+      return errorResponse(res, 'Invalid device ID', 400);
+    }
+
+    // Validate command
+    const validCommands = ['lock_door', 'unlock_door', 'request_snapshot', 'update_settings', 'restart_device', 'firmware_update'];
+    if (!command || !validCommands.includes(command)) {
+      return errorResponse(res, `Invalid command. Must be one of: ${validCommands.join(', ')}`, 400);
+    }
+
+    // Find device and verify access
+    const device = await Device.findById(deviceId);
+    if (!device) {
+      return errorResponse(res, 'Device not found', 404);
+    }
+
+    // Check if user has access to this device
+    const access = device.hasAccess(userId);
+    if (!access.hasAccess || !access.permissions.includes('control')) {
+      return errorResponse(res, 'No permission to control this device', 403);
+    }
+
+    // Send command via connection manager
+    const deviceConnectionManager = require('../services/deviceConnectionManager');
+    let commandResult = null;
+
+    try {
+      commandResult = await deviceConnectionManager.sendCommand(
+        deviceId,
+        command,
+        payload,
+        userId
+      );
+
+      logger.info(`Command '${command}' sent to device ${device.name} by user ${req.user.username}`);
+
+      return successResponse(res, {
+        commandId: commandResult.commandId,
+        status: commandResult.status,
+        deviceId: device._id,
+        deviceName: device.name,
+        command,
+        payload,
+        timestamp: new Date()
+      }, 'Command sent successfully');
+
+    } catch (commandError) {
+      logger.error(`Failed to send command to device: ${commandError.message}`);
+      return errorResponse(res, `Failed to send command: ${commandError.message}`, 500);
+    }
+
+  } catch (error) {
+    logger.error(`Send device command error: ${error.message}`);
+    return errorResponse(res, error.message, 500);
+  }
+};
+
 module.exports = {
   registerDevice,
   getAllDevices,
@@ -426,5 +494,6 @@ module.exports = {
   deleteDevice,
   getDeviceStats,
   getDeviceQR,
-  activateDevice
+  activateDevice,
+  sendDeviceCommand
 };

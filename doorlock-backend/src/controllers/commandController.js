@@ -4,11 +4,24 @@ const { sendOpenCommand, sendDenyCommand } = require('../services/mqttService');
 const { notifyDoorDecision } = require('../services/socketService');
 const { isValidObjectId } = require('../utils/validators');
 const logger = require('../utils/logger');
+const Joi = require('joi');
 
 /**
  * Command Controller
  * Handles admin decisions to open or deny door access
  */
+
+// Validation schemas
+const commandSchemas = {
+  openDoor: Joi.object({
+    visitorLogId: Joi.string().required().pattern(/^[0-9a-fA-F]{24}$/),
+    notes: Joi.string().max(500).allow('').optional()
+  }),
+  denyDoor: Joi.object({
+    visitorLogId: Joi.string().required().pattern(/^[0-9a-fA-F]{24}$/),
+    notes: Joi.string().max(500).allow('').optional()
+  })
+};
 
 /**
  * Send OPEN command to ESP32
@@ -16,12 +29,13 @@ const logger = require('../utils/logger');
  */
 const openDoor = async (req, res) => {
   try {
-    const { visitorLogId, notes } = req.body;
-
-    // Validate visitor log ID
-    if (!visitorLogId || !isValidObjectId(visitorLogId)) {
-      return errorResponse(res, 'Valid visitor log ID is required', 400);
+    // Validate request body
+    const { error, value } = commandSchemas.openDoor.validate(req.body);
+    if (error) {
+      return errorResponse(res, `Validation error: ${error.details[0].message}`, 400);
     }
+
+    const { visitorLogId, notes } = value;
 
     // Atomic update - only update if status is still 'pending'
     const visitorLog = await VisitorLog.findOneAndUpdate(
@@ -112,12 +126,13 @@ const openDoor = async (req, res) => {
  */
 const denyDoor = async (req, res) => {
   try {
-    const { visitorLogId, notes } = req.body;
-
-    // Validate visitor log ID
-    if (!visitorLogId || !isValidObjectId(visitorLogId)) {
-      return errorResponse(res, 'Valid visitor log ID is required', 400);
+    // Validate request body
+    const { error, value } = commandSchemas.denyDoor.validate(req.body);
+    if (error) {
+      return errorResponse(res, `Validation error: ${error.details[0].message}`, 400);
     }
+
+    const { visitorLogId, notes } = value;
 
     // Atomic update - only update if status is still 'pending'
     const visitorLog = await VisitorLog.findOneAndUpdate(

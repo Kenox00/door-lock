@@ -66,6 +66,13 @@ router.post('/activate', asyncHandler(deviceController.activateDevice));
 router.post('/:id/heartbeat', asyncHandler(deviceController.deviceHeartbeat));
 
 /**
+ * @route   POST /api/device/:id/command
+ * @desc    Send command to device (lock_door, unlock_door, request_snapshot, etc.)
+ * @access  Private
+ */
+router.post('/:id/command', authenticate, asyncHandler(deviceController.sendDeviceCommand));
+
+/**
  * @route   DELETE /api/device/:id
  * @desc    Delete device
  * @access  Private (Admin only)

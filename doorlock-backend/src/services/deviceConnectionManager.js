@@ -168,16 +168,12 @@ class DeviceConnectionManager {
     try {
       const conn = this.connections.get(deviceId);
       
-      if (!conn || conn.status !== 'online') {
-        throw new Error('Device not connected');
-      }
-
       const commandId = uuidv4();
       const commandData = {
         commandId,
         command,
-        timestamp: new Date().toISOString(),
-        ...payload
+        payload,
+        timestamp: new Date().toISOString()
       };
 
       // Store command in queue for tracking
@@ -196,21 +192,45 @@ class DeviceConnectionManager {
         commandId,
         userId,
         payload: { command, payload },
-        metadata: { source: 'websocket' }
+        metadata: { source: conn ? 'websocket+mqtt' : 'mqtt-only' }
       });
 
-      // Try WebSocket first, fallback to MQTT
+      // Try WebSocket first if available
       let sent = false;
 
-      if (conn.socket && conn.socket.connected) {
+      if (conn && conn.socket && conn.socket.connected) {
         conn.socket.emit(command, commandData);
         sent = true;
         logger.info(`Command ${commandId} sent via WebSocket to device ${deviceId}`);
-      } else if (conn.mqtt) {
+      }
+
+      // ALWAYS send via MQTT as well (ESP32 devices primarily use MQTT)
+      try {
         const { publishMessage, MQTT_TOPICS } = require('../config/mqtt');
-        await publishMessage(MQTT_TOPICS.CONTROL, commandData);
+        
+        // Get device info for logging
+        const device = await Device.findById(deviceId).select('name espId');
+        const deviceInfo = device ? `${device.name} (ESP ID: ${device.espId})` : deviceId;
+        
+        // Publish to device-specific topic: iot/commands/{deviceId}
+        const deviceSpecificTopic = MQTT_TOPICS.DEVICE_COMMAND(deviceId);
+        
+        logger.info(`📡 Publishing MQTT command to device-specific topic: ${deviceSpecificTopic}`);
+        logger.info(`📦 Device: ${deviceInfo}`);
+        logger.info(`📦 Command: ${command}`);
+        logger.info(`📦 Payload: ${JSON.stringify(commandData)}`);
+        
+        await publishMessage(deviceSpecificTopic, JSON.stringify(commandData));
         sent = true;
-        logger.info(`Command ${commandId} sent via MQTT to device ${deviceId}`);
+        
+        logger.info(`✅ Command ${commandId} published successfully via MQTT to ${deviceSpecificTopic}`);
+        logger.info(`🎯 Target device: ${deviceInfo}`);
+      } catch (mqttError) {
+        logger.error(`❌ MQTT publish failed for device ${deviceId}: ${mqttError.message}`);
+        logger.error(`Stack trace: ${mqttError.stack}`);
+        if (!sent) {
+          throw new Error(`Failed to send command via any channel: ${mqttError.message}`);
+        }
       }
 
       if (!sent) {

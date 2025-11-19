@@ -26,4 +26,22 @@ export const dashboardApi = {
     const response = await axiosClient.get('/dashboard/alerts');
     return response;
   },
+
+  // Approve visitor access (grant access)
+  approveVisitor: async (visitorLogId, notes = '') => {
+    const response = await axiosClient.post('/command/open', {
+      visitorLogId,
+      notes
+    });
+    return response;
+  },
+
+  // Deny visitor access
+  denyVisitor: async (visitorLogId, notes = '') => {
+    const response = await axiosClient.post('/command/deny', {
+      visitorLogId,
+      notes
+    });
+    return response;
+  },
 };

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { QRCodeModal } from './QRCodeModal';
-import { useWebSocketContext } from '../../context/WebSocketContext';
 import { devicesApi } from '../../api/devicesApi';
 import { timeAgo } from '../../utils/format';
 import { QrCode, Eye, Lock, Unlock } from 'lucide-react';
@@ -11,7 +10,6 @@ import { useUISettings } from '../../context/UISettingsContext';
 
 export const DoorLockCard = ({ device }) => {
   const navigate = useNavigate();
-  const { sendDeviceCommand, isConnected } = useWebSocketContext();
   const { density } = useUISettings();
   const [loading, setLoading] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -23,15 +21,19 @@ export const DoorLockCard = ({ device }) => {
 
   const handleToggleLock = async () => {
     setLoading(true);
-    const command = isLocked ? 'unlock' : 'lock';
-    const sent = await sendDeviceCommand(device._id || device.id, command);
-    
-    if (!sent) {
-      alert('Failed to send command - not connected');
+    try {
+      const command = isLocked ? 'unlock_door' : 'lock_door';
+      // Send command via REST API
+      await devicesApi.sendDeviceCommand(device._id || device.id, command, {});
+      // Show success feedback
+      console.log(`Command '${command}' sent successfully to ${device.name}`);
+    } catch (error) {
+      console.error('Failed to send command:', error);
+      alert(`Failed to send command: ${error.response?.data?.message || error.message}`);
+    } finally {
+      // Keep loading state for 2 seconds to show visual feedback
+      setTimeout(() => setLoading(false), 2000);
     }
-    
-    // Keep loading state for 2 seconds to show visual feedback
-    setTimeout(() => setLoading(false), 2000);
   };
 
   const handleViewQR = async () => {

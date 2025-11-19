@@ -12,10 +12,13 @@ export const VisitorApprovalModal = ({ visitor, onApprove, onReject, onClose }) 
     try {
       // Use visitorId (the actual MongoDB _id) not the notification id
       const actualVisitorId = visitor.visitorId || visitor.id;
+      // Call REST API endpoint for grant access
       await onApprove(actualVisitorId, note);
       onClose();
     } catch (error) {
       console.error('Failed to approve visitor:', error);
+      // Show user-friendly error message
+      alert(`Failed to grant access: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -26,10 +29,13 @@ export const VisitorApprovalModal = ({ visitor, onApprove, onReject, onClose }) 
     try {
       // Use visitorId (the actual MongoDB _id) not the notification id
       const actualVisitorId = visitor.visitorId || visitor.id;
+      // Call REST API endpoint for deny access
       await onReject(actualVisitorId, note || 'Access denied');
       onClose();
     } catch (error) {
       console.error('Failed to reject visitor:', error);
+      // Show user-friendly error message
+      alert(`Failed to deny access: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }

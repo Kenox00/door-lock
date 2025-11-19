@@ -248,19 +248,18 @@ const handleDeviceConnection = async (socket) => {
     socket.deviceId = deviceId;
     socket.join(`device:${deviceId}`);
 
-    // Skip device connection manager for now to avoid getIO error
-    // TODO: Fix deviceConnectionManager to not call getIO during registration
-    // await deviceConnectionManager.registerDevice(
-    //   deviceId,
-    //   'socket',
-    //   socket,
-    //   {
-    //     ipAddress: socket.handshake.address,
-    //     userAgent: socket.handshake.headers['user-agent']
-    //   }
-    // );
+    // Mark device as online in database
+    device.online = true;
+    device.status = 'online';
+    device.lastSeen = new Date();
+    await device.save();
 
-    logger.info(`Device ${deviceId} connected via WebSocket`);
+    logger.info(`🔌 Device ${deviceId} (${device.name}) connected via WebSocket`);
+    logger.info(`📊 Device registered with:`);
+    logger.info(`   - Device ID: ${deviceId}`);
+    logger.info(`   - ESP ID: ${device.espId}`);
+    logger.info(`   - Device Type: ${device.deviceType}`);
+    logger.info(`   - User ID: ${socket.userId}`);
 
   } catch (error) {
     logger.error(`Error handling device connection: ${error.message}`);
@@ -385,48 +384,81 @@ const setupSocketHandlers = (socket) => {
       logger.info(`✅ Visitor ${visitorId} approved by user ${socket.userId}`);
       
       // Update visitor log
-      const visitor = await VisitorLog.findById(visitorId);
-      if (visitor) {
-        visitor.status = 'approved';
-        visitor.note = note;
-        visitor.processedAt = timestamp;
-        visitor.processedBy = socket.userId;
-        await visitor.save();
-
-        // Send ACCESS_GRANTED to camera device
-        const deviceRoom = `device:${visitor.deviceId}`;
-        const grantedPayload = {
-          visitorId,
-          _id: visitorId,  // Include both for compatibility
-          approved: true,
-          note,
-          timestamp,
-          deviceId: visitor.deviceId,
-          deviceName: visitor.deviceName
-        };
-        
-        logger.info(`📤 Emitting ACCESS_GRANTED to room '${deviceRoom}'`);
-        logger.info(`📤 Payload: ${JSON.stringify(grantedPayload)}`);
-        
-        const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
-        logger.info(`📊 Sockets in room '${deviceRoom}': ${socketsInRoom ? socketsInRoom.size : 0}`);
-        
-        io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_GRANTED, grantedPayload);
-
-        logger.info(`✅ Access granted message sent to device ${visitor.deviceId}`);
-
-        // Notify all admins about the processed visitor
-        emitToRoom('admin', SOCKET_EVENTS.VISITOR_PROCESSED, {
-          visitorId,
-          status: 'approved',
-          deviceName: visitor.deviceName,
-          deviceId: visitor.deviceId,
-          processedBy: socket.userId,
-          timestamp,
-        });
+      const visitor = await VisitorLog.findById(visitorId).populate('deviceId');
+      if (!visitor) {
+        logger.error(`❌ Visitor log ${visitorId} not found`);
+        socket.emit('error', { message: 'Visitor log not found' });
+        return;
       }
+
+      if (!visitor.deviceId) {
+        logger.error(`❌ Visitor log ${visitorId} has no deviceId`);
+        socket.emit('error', { message: 'Device ID missing from visitor log' });
+        return;
+      }
+
+      visitor.status = 'approved';
+      visitor.note = note;
+      visitor.processedAt = timestamp;
+      visitor.processedBy = socket.userId;
+      await visitor.save();
+
+      logger.info(`📝 Visitor log ${visitorId} updated to 'approved' status`);
+
+      // **CRITICAL FIX: Send MQTT unlock command to door lock device**
+      try {
+        const deviceIdStr = visitor.deviceId._id.toString();
+        logger.info(`🔓 Attempting to send unlock command to device ${deviceIdStr} (${visitor.deviceId.name})`);
+        
+        const commandResult = await deviceConnectionManager.sendCommand(
+          deviceIdStr,
+          'unlock_door',
+          { duration: 5000 },
+          socket.userId
+        );
+        
+        logger.info(`✅ MQTT unlock command sent successfully: ${JSON.stringify(commandResult)}`);
+        logger.info(`📡 Command ID: ${commandResult.commandId}, Status: ${commandResult.status}`);
+      } catch (mqttError) {
+        logger.error(`❌ Failed to send MQTT unlock command: ${mqttError.message}`);
+        logger.error(`Stack trace: ${mqttError.stack}`);
+        // Continue execution - visitor is still approved, notify user of command failure
+      }
+
+      // Send ACCESS_GRANTED to camera device
+      const deviceRoom = `device:${visitor.deviceId._id}`;
+      const grantedPayload = {
+        visitorId,
+        _id: visitorId,  // Include both for compatibility
+        approved: true,
+        note,
+        timestamp,
+        deviceId: visitor.deviceId._id,
+        deviceName: visitor.deviceName
+      };
+      
+      logger.info(`📤 Emitting ACCESS_GRANTED to room '${deviceRoom}'`);
+      logger.info(`📤 Payload: ${JSON.stringify(grantedPayload)}`);
+      
+      const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
+      logger.info(`📊 Sockets in room '${deviceRoom}': ${socketsInRoom ? socketsInRoom.size : 0}`);
+      
+      io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_GRANTED, grantedPayload);
+
+      logger.info(`✅ Access granted message sent to device ${visitor.deviceId._id}`);
+
+      // Notify all admins about the processed visitor
+      emitToRoom('admin', SOCKET_EVENTS.VISITOR_PROCESSED, {
+        visitorId,
+        status: 'approved',
+        deviceName: visitor.deviceName,
+        deviceId: visitor.deviceId._id,
+        processedBy: socket.userId,
+        timestamp,
+      });
     } catch (error) {
       logger.error(`Visitor approval error: ${error.message}`);
+      logger.error(`Stack trace: ${error.stack}`);
       socket.emit('error', { message: error.message });
     }
   });

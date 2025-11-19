@@ -71,7 +71,8 @@ const uploadVisitorPhoto = async (req, res) => {
     // Update device last seen
     await device.updateLastSeen();
 
-    logger.info(`Visitor photo uploaded: ${visitorLog._id} from device ${device.name}`);
+    logger.info(`📸 Visitor photo uploaded: ${visitorLog._id} from device ${device.name} (${device.espId})`);
+    logger.info(`📝 Visitor log created with deviceId: ${device._id}`);
 
     // Send real-time notification to Admin app
     notifyNewVisitor({

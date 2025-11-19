@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotification } from '../../context/NotificationContext';
-import { useWebSocketContext } from '../../context/WebSocketContext';
 import ConnectionStatus from '../ui/ConnectionStatus';
 import { useUISettings } from '../../context/UISettingsContext';
 import { menuItems } from './Sidebar';
 import { NotificationDropdown } from '../ui/NotificationDropdown';
 import { VisitorApprovalModal } from '../ui/VisitorApprovalModal';
+import { dashboardApi } from '../../api/dashboardApi';
 
 export const Topbar = () => {
   const { user, logout } = useAuth();
   const { density, toggleDensity } = useUISettings();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const notification = useNotification();
-  const { approveVisitor, rejectVisitor } = useWebSocketContext();
   
   const [showDropdown, setShowDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -38,11 +37,15 @@ export const Topbar = () => {
   };
 
   const handleApprove = async (visitorId, note) => {
-    await approveVisitor(visitorId, note);
+    // Call REST API endpoint to grant access
+    await dashboardApi.approveVisitor(visitorId, note);
+    notification.success('Access granted successfully');
   };
 
   const handleReject = async (visitorId, reason) => {
-    await rejectVisitor(visitorId, reason);
+    // Call REST API endpoint to deny access
+    await dashboardApi.denyVisitor(visitorId, reason);
+    notification.success('Access denied successfully');
   };
 
   return (

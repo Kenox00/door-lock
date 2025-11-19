@@ -43,7 +43,13 @@ export const devicesApi = {
     return response;
   },
 
-  // Door lock specific (via command controller)
+  // Send command to device (lock_door, unlock_door, etc.)
+  sendDeviceCommand: async (deviceId, command, payload = {}) => {
+    const response = await axiosClient.post(`/device/${deviceId}/command`, { command, payload });
+    return response;
+  },
+
+  // Door lock specific (via command controller - for visitor approval)
   lockDoor: async (visitorLogId) => {
     const response = await axiosClient.post('/command/deny', { visitorLogId });
     return response;

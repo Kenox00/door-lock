@@ -5,11 +5,16 @@ let mqttClient = null;
 
 /**
  * MQTT Topics used in the system
+ * Device-specific topics to ensure commands reach only intended devices
  */
 const MQTT_TOPICS = {
-  CONTROL: '/door/lock/control',      // Send commands to ESP32
+  CONTROL: '/door/lock/control',      // Legacy generic topic (deprecated)
   RESPONSE: '/door/lock/response',    // Receive status from ESP32
   STATUS: '/door/lock/status',        // Device online/offline status
+  // Device-specific topics
+  DEVICE_COMMAND: (deviceId) => `iot/commands/${deviceId}`,  // Send commands to specific device
+  DEVICE_RESPONSE: (deviceId) => `iot/responses/${deviceId}`, // Receive responses from specific device
+  DEVICE_STATUS: (deviceId) => `iot/status/${deviceId}`,     // Device-specific status
 };
 
 /**
@@ -132,10 +137,25 @@ const routeMQTTMessage = async (topic, data) => {
     const { Device } = require('../models');
     const DeviceEvent = require('../models/DeviceEvent');
 
+    // Check for device-specific response topics: iot/responses/{deviceId}
+    if (topic.startsWith('iot/responses/')) {
+      const deviceId = topic.split('/')[2];
+      logger.info(`📨 Device-specific response from ${deviceId}: ${JSON.stringify(data)}`);
+      
+      if (data.commandId) {
+        await deviceConnectionManager.handleCommandAck(
+          data.commandId,
+          data.status || 'executed',
+          data.errorMessage
+        );
+      }
+      return;
+    }
+
     switch (topic) {
       case MQTT_TOPICS.RESPONSE:
-        // Device response to command
-        logger.info(`Device response: ${JSON.stringify(data)}`);
+        // Legacy device response to command
+        logger.info(`Device response (legacy topic): ${JSON.stringify(data)}`);
         
         if (data.commandId) {
           await deviceConnectionManager.handleCommandAck(
@@ -153,20 +173,47 @@ const routeMQTTMessage = async (topic, data) => {
         // Find device
         const device = await Device.findOne({ espId });
         if (device) {
+          const deviceIdStr = device._id.toString();
+          logger.info(`📱 Device status update: ${device.name} (${espId}) - Status: ${status}`);
+          
           // Update connection manager
           if (status === 'online') {
             await deviceConnectionManager.registerDevice(
-              device._id.toString(),
+              deviceIdStr,
               'mqtt',
               mqttClient,
               metadata || {}
             );
+            
+            // Subscribe to device-specific command topic
+            const deviceCommandTopic = MQTT_TOPICS.DEVICE_COMMAND(deviceIdStr);
+            const deviceResponseTopic = MQTT_TOPICS.DEVICE_RESPONSE(deviceIdStr);
+            
+            logger.info(`🔔 Subscribing to device-specific topics:`);
+            logger.info(`   - Commands: ${deviceCommandTopic}`);
+            logger.info(`   - Responses: ${deviceResponseTopic}`);
+            
+            mqttClient.subscribe([deviceCommandTopic, deviceResponseTopic], { qos: 1 }, (err, granted) => {
+              if (err) {
+                logger.error(`❌ Failed to subscribe to device topics: ${err.message}`);
+              } else {
+                logger.info(`✅ Subscribed to device ${deviceIdStr} topics`);
+                logger.info(`📋 Granted: ${JSON.stringify(granted)}`);
+              }
+            });
           } else {
             await deviceConnectionManager.unregisterDevice(
-              device._id.toString(),
+              deviceIdStr,
               'mqtt',
               'status_update'
             );
+            
+            // Unsubscribe from device-specific topics
+            const deviceCommandTopic = MQTT_TOPICS.DEVICE_COMMAND(deviceIdStr);
+            const deviceResponseTopic = MQTT_TOPICS.DEVICE_RESPONSE(deviceIdStr);
+            
+            logger.info(`🔕 Unsubscribing from device topics: ${deviceCommandTopic}, ${deviceResponseTopic}`);
+            mqttClient.unsubscribe([deviceCommandTopic, deviceResponseTopic]);
           }
 
           // Update database
@@ -192,6 +239,8 @@ const routeMQTTMessage = async (topic, data) => {
             status: status === 'online' ? 'online' : 'offline',
             timestamp: new Date()
           });
+        } else {
+          logger.warn(`⚠️ Received status for unknown ESP ID: ${espId}`);
         }
         break;
 
