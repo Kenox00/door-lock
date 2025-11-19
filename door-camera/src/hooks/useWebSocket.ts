@@ -52,8 +52,12 @@ export const useWebSocket = (config: WebSocketConfig = {}): UseWebSocketReturn =
    * Handle successful connection
    */
   const handleConnect = useCallback(() => {
+    console.log('========== WEBSOCKET CONNECTION SUCCESS ==========');
     console.log('✅ WebSocket connected to:', wsUrl);
     console.log('🔑 Device ID:', deviceId);
+    console.log('🏠 Expected Room:', `device:${deviceId}`);
+    console.log('================================================');
+    
     setIsConnected(true);
     setConnectionStatus('online');
     setReconnecting(false);
@@ -80,6 +84,9 @@ export const useWebSocket = (config: WebSocketConfig = {}): UseWebSocketReturn =
           version: '1.0.0',
         },
       });
+      
+      console.log('📡 CAMERA_ONLINE event emitted');
+      console.log('🎯 Socket rooms after connect:', socketRef.current.rooms ? Array.from(socketRef.current.rooms) : 'N/A');
     }
   }, [wsUrl, deviceId, jwt, setConnectionStatus, updateDeviceInfo]);
 
@@ -221,7 +228,12 @@ export const useWebSocket = (config: WebSocketConfig = {}): UseWebSocketReturn =
    * Handle access granted event
    */
   const handleAccessGranted = useCallback((data: any) => {
+    console.log('========== ACCESS_GRANTED RECEIVED ==========');
     console.log('✅ Access granted event received:', data);
+    console.log('📋 Event data:', JSON.stringify(data, null, 2));
+    console.log('🆔 Visitor ID:', data.visitorId || data._id);
+    console.log('📱 Device ID:', data.deviceId);
+    console.log('================================================');
     // Event will be handled by the Waiting page component
     // This is just a global handler for logging
   }, []);

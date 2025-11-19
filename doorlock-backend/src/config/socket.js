@@ -246,7 +246,8 @@ const handleDeviceConnection = async (socket) => {
     logger.info(`✅ Device ${deviceId} authorization successful`);
 
     socket.deviceId = deviceId;
-    socket.join(`device:${deviceId}`);
+    const roomName = `device:${deviceId}`;
+    socket.join(roomName);
 
     // Mark device as online in database
     device.online = true;
@@ -260,6 +261,8 @@ const handleDeviceConnection = async (socket) => {
     logger.info(`   - ESP ID: ${device.espId}`);
     logger.info(`   - Device Type: ${device.deviceType}`);
     logger.info(`   - User ID: ${socket.userId}`);
+    logger.info(`📍 Device joined room: ${roomName}`);
+    logger.info(`🎯 Socket rooms: ${Array.from(socket.rooms).join(', ')}`);
 
   } catch (error) {
     logger.error(`Error handling device connection: ${error.message}`);
@@ -437,15 +440,36 @@ const setupSocketHandlers = (socket) => {
         deviceName: visitor.deviceName
       };
       
-      logger.info(`📤 Emitting ACCESS_GRANTED to room '${deviceRoom}'`);
+      logger.info(`📤 ========== ACCESS_GRANTED EMIT DEBUG ==========`);
+      logger.info(`📤 Target Room: '${deviceRoom}'`);
+      logger.info(`📤 Visitor ID: ${visitorId}`);
+      logger.info(`📤 Device ID: ${visitor.deviceId._id}`);
+      logger.info(`📤 Device Name: ${visitor.deviceName}`);
       logger.info(`📤 Payload: ${JSON.stringify(grantedPayload)}`);
       
       const socketsInRoom = io.sockets.adapter.rooms.get(deviceRoom);
       logger.info(`📊 Sockets in room '${deviceRoom}': ${socketsInRoom ? socketsInRoom.size : 0}`);
       
+      if (socketsInRoom && socketsInRoom.size > 0) {
+        logger.info(`📋 Socket IDs in room:`);
+        socketsInRoom.forEach(socketId => {
+          const sock = io.sockets.sockets.get(socketId);
+          if (sock) {
+            logger.info(`   - Socket ${socketId}: deviceId=${sock.deviceId}, rooms=${Array.from(sock.rooms).join(', ')}`);
+          }
+        });
+      } else {
+        logger.error(`❌ WARNING: No sockets in room '${deviceRoom}' - camera may not be connected!`);
+        logger.info(`📋 All active rooms:`);
+        io.sockets.adapter.rooms.forEach((sockets, room) => {
+          logger.info(`   Room: ${room} - ${sockets.size} sockets`);
+        });
+      }
+      
       io.to(deviceRoom).emit(SOCKET_EVENTS.ACCESS_GRANTED, grantedPayload);
 
-      logger.info(`✅ Access granted message sent to device ${visitor.deviceId._id}`);
+      logger.info(`✅ ACCESS_GRANTED event emitted to room '${deviceRoom}'`);
+      logger.info(`📤 ================================================`);
 
       // Notify all admins about the processed visitor
       emitToRoom('admin', SOCKET_EVENTS.VISITOR_PROCESSED, {

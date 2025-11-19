@@ -27,34 +27,53 @@ export const Waiting: React.FC = () => {
       return;
     }
 
-    console.log('👂 Listening for access events with sessionId:', sessionId);
+    console.log('========== WAITING PAGE EVENT SETUP ==========');
+    console.log('👂 Listening for access events');
+    console.log('🆔 Current sessionId (visitorLogId):', sessionId);
+    console.log('🔌 Socket connected:', socket.connected);
+    console.log('📱 Socket ID:', socket.id);
+    console.log('================================================');
 
     const handleAccessGranted = (data: any) => {
-      console.log('✅ ACCESS_GRANTED event received:', data);
-      console.log('🔍 Comparing visitorId:', data.visitorId, 'with sessionId:', sessionId);
-      console.log('🔍 Comparing _id:', data._id, 'with sessionId:', sessionId);
+      console.log('========== ACCESS_GRANTED IN WAITING PAGE ==========');
+      console.log('✅ ACCESS_GRANTED event received in Waiting component');
+      console.log('📋 Full event data:', JSON.stringify(data, null, 2));
+      console.log('🔍 Comparing:');
+      console.log('   - data.visitorId:', data.visitorId);
+      console.log('   - data._id:', data._id);
+      console.log('   - sessionId:', sessionId);
+      console.log('   - Match visitorId?', data.visitorId === sessionId);
+      console.log('   - Match _id?', data._id === sessionId);
       
       // Check if this is for the current visitor
       if (data.visitorId === sessionId || data._id === sessionId) {
-        console.log('🎉 Match found! Navigating to approved page');
+        console.log('🎉 ✅ MATCH FOUND! Navigating to approved page');
         navigate('/approved');
       } else {
-        console.log('⚠️ No match - event is for different visitor');
+        console.log('⚠️ No match - this event is for a different visitor');
+        console.log('   Expected:', sessionId);
+        console.log('   Got:', data.visitorId || data._id);
       }
+      console.log('================================================');
     };
 
     const handleAccessDenied = (data: any) => {
-      console.log('❌ ACCESS_DENIED event received:', data);
-      console.log('🔍 Comparing visitorId:', data.visitorId, 'with sessionId:', sessionId);
-      console.log('🔍 Comparing _id:', data._id, 'with sessionId:', sessionId);
+      console.log('========== ACCESS_DENIED IN WAITING PAGE ==========');
+      console.log('❌ ACCESS_DENIED event received in Waiting component');
+      console.log('📋 Full event data:', JSON.stringify(data, null, 2));
+      console.log('🔍 Comparing:');
+      console.log('   - data.visitorId:', data.visitorId);
+      console.log('   - data._id:', data._id);
+      console.log('   - sessionId:', sessionId);
       
       // Check if this is for the current visitor
       if (data.visitorId === sessionId || data._id === sessionId) {
-        console.log('🎉 Match found! Navigating to denied page');
+        console.log('🎉 ✅ MATCH FOUND! Navigating to denied page');
         navigate('/denied');
       } else {
-        console.log('⚠️ No match - event is for different visitor');
+        console.log('⚠️ No match - this event is for a different visitor');
       }
+      console.log('================================================');
     };
 
     console.log('📡 Registering event listeners for ACCESS_GRANTED and ACCESS_DENIED');
@@ -62,6 +81,7 @@ export const Waiting: React.FC = () => {
     socket.on(EVENTS.ACCESS_DENIED, handleAccessDenied);
 
     return () => {
+      console.log('🧹 Cleaning up event listeners in Waiting component');
       socket.off(EVENTS.ACCESS_GRANTED, handleAccessGranted);
       socket.off(EVENTS.ACCESS_DENIED, handleAccessDenied);
     };
